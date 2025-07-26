@@ -12,7 +12,7 @@ export function useAdvancedTrading() {
   const [networkStats, setNetworkStats] = useState({
     baseFee: 15,
     fastGasPrice: 25,
-    networkCongestion: 'medium' as const,
+    networkCongestion: 'medium' as 'low' | 'medium' | 'high',
     avgBlockTime: 12,
   });
 
@@ -262,7 +262,7 @@ export function useAdvancedTrading() {
     setNetworkStats(prev => ({
       baseFee: prev.baseFee + (Math.random() - 0.5) * 5,
       fastGasPrice: prev.fastGasPrice + (Math.random() - 0.5) * 8,
-      networkCongestion: ['low', 'medium', 'high'][Math.floor(Math.random() * 3)] as any,
+      networkCongestion: (['low', 'medium', 'high'][Math.floor(Math.random() * 3)] as 'low' | 'medium' | 'high'),
       avgBlockTime: 12 + (Math.random() - 0.5) * 4,
     }));
   }, []);
