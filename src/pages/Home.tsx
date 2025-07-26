@@ -23,7 +23,11 @@ import { useTrading } from '../hooks/useTrading';
 import { Button } from '../components/ui/button';
 import { Zap, Shield, TrendingUp } from 'lucide-react';
 
-export default function Home() {
+interface HomeProps {
+  userId?: string;
+}
+
+export default function Home({ userId }: HomeProps = {}) {
   const { isConnected } = useRealMetaMask();
   const {
     snipeConfigs,
