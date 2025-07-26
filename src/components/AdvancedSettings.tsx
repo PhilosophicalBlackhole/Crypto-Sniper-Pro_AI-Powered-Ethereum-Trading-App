@@ -47,9 +47,17 @@ export function AdvancedSettings({ config, onUpdate }: AdvancedSettingsProps) {
   };
 
   const handleAutoSellChange = (field: string, value: any) => {
+    const currentAutoSell = config.autoSell || {
+      enabled: false,
+      profitTarget: 50,
+      stopLoss: 20,
+      trailingStop: { enabled: false, percentage: 5, activationPrice: 10 },
+      partialSelling: { enabled: false, percentages: [25, 50], priceTargets: [20, 50] }
+    };
+    
     onUpdate({
       autoSell: {
-        ...config.autoSell,
+        ...currentAutoSell,
         [field]: value,
       },
     });
@@ -407,7 +415,7 @@ export function AdvancedSettings({ config, onUpdate }: AdvancedSettingsProps) {
                       <Input
                         type="number"
                         step="1"
-                        value={config.autoSell.profitTarget}
+                        value={config.autoSell?.profitTarget || 50}
                         onChange={(e) => handleAutoSellChange('profitTarget', parseFloat(e.target.value))}
                         className="bg-slate-800 border-slate-600 text-white"
                         placeholder="%"
@@ -426,7 +434,7 @@ export function AdvancedSettings({ config, onUpdate }: AdvancedSettingsProps) {
                       <Input
                         type="number"
                         step="1"
-                        value={config.autoSell.stopLoss}
+                        value={config.autoSell?.stopLoss || 20}
                         onChange={(e) => handleAutoSellChange('stopLoss', parseFloat(e.target.value))}
                         className="bg-slate-800 border-slate-600 text-white"
                         placeholder="%"
@@ -438,11 +446,12 @@ export function AdvancedSettings({ config, onUpdate }: AdvancedSettingsProps) {
                     <div className="flex items-center space-x-2 mb-3">
                       <Switch
                         id="trailingStopEnabled"
-                        checked={config.autoSell.trailingStop?.enabled || false}
+                        checked={config.autoSell?.trailingStop?.enabled || false}
                         onCheckedChange={(checked) => 
                           handleAutoSellChange('trailingStop', { 
-                            ...config.autoSell.trailingStop, 
-                            enabled: checked 
+                            enabled: checked,
+                            percentage: config.autoSell?.trailingStop?.percentage || 5,
+                            activationPrice: config.autoSell?.trailingStop?.activationPrice || 10
                           })
                         }
                       />
@@ -454,18 +463,19 @@ export function AdvancedSettings({ config, onUpdate }: AdvancedSettingsProps) {
                       />
                     </div>
 
-                    {config.autoSell.trailingStop?.enabled && (
+                    {config.autoSell?.trailingStop?.enabled && (
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <Label className="text-slate-300 text-sm">Trail Percentage</Label>
                           <Input
                             type="number"
                             step="0.5"
-                            value={config.autoSell.trailingStop.percentage}
+                            value={config.autoSell?.trailingStop?.percentage || 5}
                             onChange={(e) => 
                               handleAutoSellChange('trailingStop', { 
-                                ...config.autoSell.trailingStop, 
-                                percentage: parseFloat(e.target.value) 
+                                enabled: config.autoSell?.trailingStop?.enabled || false,
+                                percentage: parseFloat(e.target.value),
+                                activationPrice: config.autoSell?.trailingStop?.activationPrice || 10
                               })
                             }
                             className="bg-slate-700 border-slate-600 text-white"
@@ -477,11 +487,12 @@ export function AdvancedSettings({ config, onUpdate }: AdvancedSettingsProps) {
                           <Input
                             type="number"
                             step="1"
-                            value={config.autoSell.trailingStop.activationPrice}
+                            value={config.autoSell?.trailingStop?.activationPrice || 10}
                             onChange={(e) => 
                               handleAutoSellChange('trailingStop', { 
-                                ...config.autoSell.trailingStop, 
-                                activationPrice: parseFloat(e.target.value) 
+                                enabled: config.autoSell?.trailingStop?.enabled || false,
+                                percentage: config.autoSell?.trailingStop?.percentage || 5,
+                                activationPrice: parseFloat(e.target.value)
                               })
                             }
                             className="bg-slate-700 border-slate-600 text-white"
@@ -496,11 +507,12 @@ export function AdvancedSettings({ config, onUpdate }: AdvancedSettingsProps) {
                     <div className="flex items-center space-x-2 mb-3">
                       <Switch
                         id="partialSellingEnabled"
-                        checked={config.autoSell.partialSelling?.enabled || false}
+                        checked={config.autoSell?.partialSelling?.enabled || false}
                         onCheckedChange={(checked) => 
                           handleAutoSellChange('partialSelling', { 
-                            ...config.autoSell.partialSelling, 
-                            enabled: checked 
+                            enabled: checked,
+                            percentages: config.autoSell?.partialSelling?.percentages || [25, 50],
+                            priceTargets: config.autoSell?.partialSelling?.priceTargets || [20, 50]
                           })
                         }
                       />
@@ -512,7 +524,7 @@ export function AdvancedSettings({ config, onUpdate }: AdvancedSettingsProps) {
                       />
                     </div>
 
-                    {config.autoSell.partialSelling?.enabled && (
+                    {config.autoSell?.partialSelling?.enabled && (
                       <div className="space-y-2">
                         <div className="text-slate-400 text-sm">Sell 25% at 20% profit, 50% at 50% profit</div>
                         <div className="text-xs text-slate-500">Advanced partial selling configuration coming soon</div>

@@ -9,7 +9,7 @@ import { Sun, Moon, Monitor } from 'lucide-react';
 
 interface ThemeToggleProps {
   className?: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'lg' | 'default' | 'icon';
   variant?: 'default' | 'outline' | 'ghost';
 }
 

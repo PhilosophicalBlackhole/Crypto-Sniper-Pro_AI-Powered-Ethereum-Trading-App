@@ -53,7 +53,7 @@ export function AuthModal({ isOpen, onClose, defaultTab, onSuccess }: AuthModalP
     email: '',
     password: '',
     confirmPassword: '',
-    plan: 'free' as const
+    plan: 'free' as 'free' | 'pro' | 'premium'
   });
 
   if (!isOpen) return null;

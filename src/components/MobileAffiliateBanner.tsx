@@ -11,8 +11,8 @@ export function MobileAffiliateBanner() {
   const affiliateUrl = 'https://coins.game/c/2244403_ae585d8d';
 
   const handleClick = () => {
-    if (typeof gtag !== 'undefined') {
-      gtag('event', 'affiliate_click_mobile', {
+    if (typeof window !== 'undefined' && window.gtag) {
+      window.gtag('event', 'affiliate_click_mobile', {
         event_category: 'monetization',
         event_label: 'coins_game_mobile'
       });

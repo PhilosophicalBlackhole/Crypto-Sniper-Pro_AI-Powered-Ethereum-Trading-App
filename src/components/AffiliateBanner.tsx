@@ -21,8 +21,8 @@ export function AffiliateBanner({ className = '' }: AffiliateBannerProps) {
    */
   const handleClick = () => {
     // Track click for analytics
-    if (typeof gtag !== 'undefined') {
-      gtag('event', 'affiliate_click', {
+    if (typeof window !== 'undefined' && window.gtag) {
+      window.gtag('event', 'affiliate_click', {
         event_category: 'monetization',
         event_label: 'coins_game_banner'
       });
