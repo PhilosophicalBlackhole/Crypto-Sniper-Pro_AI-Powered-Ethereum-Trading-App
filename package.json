@@ -57,7 +57,7 @@
     "vaul": "^1.1.2",
     "zod": "latest",
     "zustand": "latest",
-    "react-joyride": "latest",
+    "react-joyride": "^2.9.2",
     "@coinbase/wallet-sdk": "latest",
     "ethers": "latest",
     "@types/uuid": "latest",
@@ -80,17 +80,5 @@
     "rimraf": "^6.0.1",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7"
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
   }
 }
