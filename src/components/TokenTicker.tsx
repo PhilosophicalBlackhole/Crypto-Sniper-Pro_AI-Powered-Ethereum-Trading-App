@@ -38,7 +38,11 @@ export function TokenTicker({ className = '' }: TokenTickerProps) {
       }
     `;
     document.head.appendChild(style);
-    return () => document.head.removeChild(style);
+    return () => {
+      if (document.head.contains(style)) {
+        document.head.removeChild(style);
+      }
+    };
   }, []);
 
   const popularCoins = [

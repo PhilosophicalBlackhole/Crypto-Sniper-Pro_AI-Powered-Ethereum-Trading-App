@@ -120,7 +120,7 @@ export function LiveVisualEffects({ marketTrend = 'neutral', intensity = 0.5 }: 
         ))}
       </div>
       
-      <style jsx>{`
+      <style>{`
         @keyframes streamLine {
           0% { transform: translateX(-100%); }
           100% { transform: translateX(100%); }
