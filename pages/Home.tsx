@@ -166,7 +166,7 @@ export default function Home({ userId }: HomeProps = {}) {
                 <Zap className="h-10 w-10 text-white" />
               </div>
               <h2 className="text-3xl font-bold text-white mb-4">
-                Welcome to CryptoSniper Pro
+                Welcome to CryptoSniper.Pro
               </h2>
               <p className="text-xl text-slate-400 mb-8">
                 Advanced Ethereum sniping bot with real-time monitoring and automated trading
