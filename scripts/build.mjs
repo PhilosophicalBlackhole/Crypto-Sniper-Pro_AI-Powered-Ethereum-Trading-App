@@ -67,7 +67,7 @@ const htmlContent = `<!DOCTYPE html>
 <body>
     <div id="root">
         <div class="loading">
-            <div>Loading CryptoSniper Pro...</div>
+            <div>Loading CryptoSniper.Pro...</div>
         </div>
     </div>
     <script src="/bundle.js"></script>
@@ -77,7 +77,7 @@ const htmlContent = `<!DOCTYPE html>
 fs.writeFileSync('dist/index.html', htmlContent);
 
 if (isDev) {
-  console.log('🚀 Starting CryptoSniper Pro development server...');
+  console.log('🚀 Starting CryptoSniper.Pro development server...');
   
   // Use React's built-in development server
   const reactProcess = spawn('npx', ['react-scripts', 'start'], {
@@ -125,7 +125,7 @@ if (isDev) {
 
     const port = 3000;
     server.listen(port, () => {
-      console.log(`🚀 CryptoSniper Pro dev server running at http://localhost:${port}`);
+      console.log(`🚀 CryptoSniper.Pro now dev server running at http://localhost:${port}`);
     });
   });
   
