@@ -1,0 +1,1098 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptoSniper Pro - Trading Simulation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.3.0/build/global/luxon.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.min.js"></script>
+</head>
+<body class="bg-gray-900 text-white font-sans">
+    <header class="bg-gray-800 border-b border-gray-700">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center">
+                <h1 class="text-2xl font-bold text-green-400">CryptoSniper Pro</h1>
+                <span class="ml-2 text-sm text-gray-400">Simulation</span>
+            </div>
+            <div>
+                <button id="reset-simulation" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm">Reset Simulation</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <div class="mb-8">
+            <h2 class="text-2xl font-bold mb-4">Crypto Trading Simulator</h2>
+            <p class="text-gray-300 mb-6">
+                What if you could test different trading strategies without risking real money? This simulation lets you explore how automated trading bots work and how different parameters affect your trading outcomes.
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left Column: Controls -->
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                <h3 class="text-xl font-bold mb-4 text-green-400">Trading Parameters</h3>
+                
+                <div class="mb-6">
+                    <h4 class="font-semibold mb-2 text-gray-300">Market Conditions</h4>
+                    <div class="mb-4">
+                        <label class="block text-sm text-gray-400 mb-1">Market Volatility</label>
+                        <div class="flex items-center">
+                            <span class="text-xs text-gray-500 mr-2">Low</span>
+                            <input type="range" id="volatility" min="1" max="10" value="5" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                            <span class="text-xs text-gray-500 ml-2">High</span>
+                        </div>
+                        <div class="text-center text-sm text-gray-400 mt-1" id="volatility-value">5</div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm text-gray-400 mb-1">Market Trend</label>
+                        <div class="flex items-center">
+                            <span class="text-xs text-gray-500 mr-2">Bearish</span>
+                            <input type="range" id="trend" min="1" max="10" value="5" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                            <span class="text-xs text-gray-500 ml-2">Bullish</span>
+                        </div>
+                        <div class="text-center text-sm text-gray-400 mt-1" id="trend-value">5</div>
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <h4 class="font-semibold mb-2 text-gray-300">Bot Configuration</h4>
+                    <div class="mb-4">
+                        <label class="block text-sm text-gray-400 mb-1">Gas Price Strategy</label>
+                        <select id="gas-strategy" class="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-sm">
+                            <option value="low">Conservative (Low Gas)</option>
+                            <option value="medium" selected>Balanced</option>
+                            <option value="high">Aggressive (High Gas)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm text-gray-400 mb-1">MEV Protection</label>
+                        <div class="flex items-center">
+                            <input type="checkbox" id="mev-protection" class="mr-2 h-4 w-4 bg-gray-700 border-gray-600 rounded" checked>
+                            <span class="text-sm text-gray-300">Enable MEV Protection</span>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm text-gray-400 mb-1">Trading Strategy</label>
+                        <select id="trading-strategy" class="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-sm">
+                            <option value="conservative">Conservative (Lower Risk)</option>
+                            <option value="balanced" selected>Balanced</option>
+                            <option value="aggressive">Aggressive (Higher Risk)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <h4 class="font-semibold mb-2 text-gray-300">Investment</h4>
+                    <div class="mb-4">
+                        <label class="block text-sm text-gray-400 mb-1">Initial Capital (ETH)</label>
+                        <input type="number" id="initial-capital" min="0.1" max="100" step="0.1" value="1" class="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-sm">
+                    </div>
+                </div>
+                
+                <button id="start-simulation" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-md transition duration-200">
+                    Start Simulation
+                </button>
+            </div>
+            
+            <!-- Middle Column: Charts -->
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg lg:col-span-2">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-green-400">Simulation Results</h3>
+                    <div class="text-sm text-gray-400" id="simulation-time">Time: 00:00</div>
+                </div>
+                
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <h4 class="font-semibold text-gray-300">Token Price Chart</h4>
+                        <div class="text-sm">
+                            <span class="text-green-400" id="current-price">$0.00</span>
+                        </div>
+                    </div>
+                    <div class="relative bg-gray-900 rounded-lg p-2" style="min-height: 250px; max-height: 300px;">
+                        <canvas id="price-chart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <h4 class="font-semibold text-gray-300">Portfolio Value</h4>
+                        <div class="text-sm">
+                            <span class="text-green-400" id="portfolio-value">$0.00</span>
+                            <span class="ml-2 text-xs" id="portfolio-change">(+0.00%)</span>
+                        </div>
+                    </div>
+                    <div class="relative bg-gray-900 rounded-lg p-2" style="min-height: 200px; max-height: 250px;">
+                        <canvas id="portfolio-chart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-gray-900 rounded-lg p-4">
+                        <h4 class="font-semibold text-gray-300 mb-2">Trading Statistics</h4>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="bg-gray-800 p-3 rounded">
+                                <div class="text-xs text-gray-400">Trades</div>
+                                <div class="text-xl font-bold" id="trade-count">0</div>
+                            </div>
+                            <div class="bg-gray-800 p-3 rounded">
+                                <div class="text-xs text-gray-400">Success Rate</div>
+                                <div class="text-xl font-bold" id="success-rate">0%</div>
+                            </div>
+                            <div class="bg-gray-800 p-3 rounded">
+                                <div class="text-xs text-gray-400">Avg. Profit</div>
+                                <div class="text-xl font-bold" id="avg-profit">$0.00</div>
+                            </div>
+                            <div class="bg-gray-800 p-3 rounded">
+                                <div class="text-xs text-gray-400">Gas Spent</div>
+                                <div class="text-xl font-bold" id="gas-spent">0.00 ETH</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-gray-900 rounded-lg p-4">
+                        <h4 class="font-semibold text-gray-300 mb-2">Recent Trades</h4>
+                        <div class="overflow-y-auto max-h-40">
+                            <table class="w-full text-sm">
+                                <thead class="text-xs text-gray-400">
+                                    <tr>
+                                        <th class="text-left pb-2">Time</th>
+                                        <th class="text-left pb-2">Type</th>
+                                        <th class="text-right pb-2">Price</th>
+                                        <th class="text-right pb-2">Profit</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="trades-table" class="text-gray-300">
+                                    <!-- Trades will be added here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Educational Section -->
+        <div class="mt-8 bg-gray-800 p-6 rounded-lg shadow-lg">
+            <h3 class="text-xl font-bold mb-4 text-green-400">Understanding Crypto Sniping</h3>
+            
+            <div class="mb-6">
+                <h4 class="font-semibold mb-2 text-gray-300">What is Token Sniping?</h4>
+                <p class="text-gray-400 text-sm">
+                    Token sniping is the practice of buying newly launched tokens as quickly as possible, often within seconds of their launch. Traders use automated bots to execute these trades faster than would be possible manually, aiming to purchase tokens before their price increases significantly.
+                </p>
+            </div>
+            
+            <div class="mb-6">
+                <h4 class="font-semibold mb-2 text-gray-300">Key Factors in Successful Sniping</h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div class="bg-gray-900 p-4 rounded-lg">
+                        <h5 class="font-semibold text-green-400 mb-2">Gas Strategy</h5>
+                        <p class="text-gray-400">
+                            Higher gas prices can help your transaction be processed faster, but cost more ETH. Lower gas prices save money but may cause your transaction to be processed too late.
+                        </p>
+                    </div>
+                    <div class="bg-gray-900 p-4 rounded-lg">
+                        <h5 class="font-semibold text-green-400 mb-2">MEV Protection</h5>
+                        <p class="text-gray-400">
+                            Maximal Extractable Value (MEV) protection helps prevent your transactions from being front-run by miners or other traders, which can result in worse prices or failed transactions.
+                        </p>
+                    </div>
+                    <div class="bg-gray-900 p-4 rounded-lg">
+                        <h5 class="font-semibold text-green-400 mb-2">Market Timing</h5>
+                        <p class="text-gray-400">
+                            Entering at the right moment is crucial. Too early might mean buying before liquidity is added, too late might mean missing the initial price surge.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div>
+                <h4 class="font-semibold mb-2 text-gray-300">Simulation Insights</h4>
+                <p class="text-gray-400 text-sm">
+                    This simulation demonstrates how different market conditions and bot configurations affect trading outcomes. Try adjusting the parameters to see how they impact your results:
+                </p>
+                <ul class="list-disc list-inside text-gray-400 text-sm mt-2">
+                    <li>Higher volatility creates more price swings, offering both higher risk and reward</li>
+                    <li>Market trend affects the overall direction of price movement</li>
+                    <li>More aggressive gas strategies may help you get in earlier but cost more in fees</li>
+                    <li>MEV protection can prevent front-running but adds additional cost</li>
+                    <li>Different trading strategies balance risk and reward differently</li>
+                </ul>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-gray-800 border-t border-gray-700 mt-8 py-6">
+        <div class="container mx-auto px-4 text-center text-gray-400 text-sm">
+            <p>This is an educational simulation only. Not financial advice.</p>
+            <p class="mt-2">© 2024 CryptoSniper Pro Simulation. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Initialize charts and simulation state
+        let priceChart = null;
+        let portfolioChart = null;
+        let simulationInterval = null;
+        let simulationRunning = false;
+        let simulationTime = 0; // in seconds
+        let simulationData = {
+            prices: [],
+            portfolioValues: [],
+            trades: [],
+            initialCapital: 0,
+            currentCapital: 0,
+            tokenHoldings: 0,
+            successfulTrades: 0,
+            totalGasSpent: 0
+        };
+
+        // DOM elements
+        const volatilitySlider = document.getElementById('volatility');
+        const volatilityValue = document.getElementById('volatility-value');
+        const trendSlider = document.getElementById('trend');
+        const trendValue = document.getElementById('trend-value');
+        const gasStrategySelect = document.getElementById('gas-strategy');
+        const mevProtectionCheckbox = document.getElementById('mev-protection');
+        const tradingStrategySelect = document.getElementById('trading-strategy');
+        const initialCapitalInput = document.getElementById('initial-capital');
+        const startSimulationButton = document.getElementById('start-simulation');
+        const resetSimulationButton = document.getElementById('reset-simulation');
+        const simulationTimeDisplay = document.getElementById('simulation-time');
+        const currentPriceDisplay = document.getElementById('current-price');
+        const portfolioValueDisplay = document.getElementById('portfolio-value');
+        const portfolioChangeDisplay = document.getElementById('portfolio-change');
+        const tradeCountDisplay = document.getElementById('trade-count');
+        const successRateDisplay = document.getElementById('success-rate');
+        const avgProfitDisplay = document.getElementById('avg-profit');
+        const gasSpentDisplay = document.getElementById('gas-spent');
+        const tradesTableBody = document.getElementById('trades-table');
+
+        // Update slider value displays
+        volatilitySlider.addEventListener('input', () => {
+            volatilityValue.textContent = volatilitySlider.value;
+        });
+
+        trendSlider.addEventListener('input', () => {
+            trendValue.textContent = trendSlider.value;
+        });
+
+        // Initialize charts
+        function initializeCharts() {
+            try {
+                // Destroy existing charts if they exist
+                if (priceChart) {
+                    priceChart.destroy();
+                }
+                if (portfolioChart) {
+                    portfolioChart.destroy();
+                }
+
+                // Create price chart
+                const priceChartCtx = document.getElementById('price-chart').getContext('2d');
+                priceChart = new Chart(priceChartCtx, {
+                    type: 'line',
+                    data: {
+                        datasets: [{
+                            label: 'Token Price',
+                            data: [],
+                            borderColor: 'rgb(34, 197, 94)',
+                            backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        maintainAspectRatio: false,
+                        responsive: true,
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: 'minute',
+                                    displayFormats: {
+                                        minute: 'HH:mm:ss'
+                                    }
+                                },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                },
+                                ticks: {
+                                    color: 'rgba(255, 255, 255, 0.5)'
+                                }
+                            },
+                            y: {
+                                beginAtZero: false,
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                },
+                                ticks: {
+                                    color: 'rgba(255, 255, 255, 0.5)',
+                                    callback: function(value) {
+                                        return '$' + value.toFixed(4);
+                                    }
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                callbacks: {
+                                    label: function(context) {
+                                        return 'Price: $' + context.parsed.y.toFixed(6);
+                                    }
+                                }
+                            }
+                        },
+                        interaction: {
+                            mode: 'nearest',
+                            intersect: false
+                        },
+                        animation: {
+                            duration: 0
+                        }
+                    }
+                });
+
+                // Create portfolio chart
+                const portfolioChartCtx = document.getElementById('portfolio-chart').getContext('2d');
+                portfolioChart = new Chart(portfolioChartCtx, {
+                    type: 'line',
+                    data: {
+                        datasets: [{
+                            label: 'Portfolio Value',
+                            data: [],
+                            borderColor: 'rgb(59, 130, 246)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        maintainAspectRatio: false,
+                        responsive: true,
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: 'minute',
+                                    displayFormats: {
+                                        minute: 'HH:mm:ss'
+                                    }
+                                },
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                },
+                                ticks: {
+                                    color: 'rgba(255, 255, 255, 0.5)'
+                                }
+                            },
+                            y: {
+                                beginAtZero: false,
+                                grid: {
+                                    color: 'rgba(255, 255, 255, 0.1)'
+                                },
+                                ticks: {
+                                    color: 'rgba(255, 255, 255, 0.5)',
+                                    callback: function(value) {
+                                        return '$' + value.toFixed(2);
+                                    }
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                callbacks: {
+                                    label: function(context) {
+                                        return 'Value: $' + context.parsed.y.toFixed(2);
+                                    }
+                                }
+                            }
+                        },
+                        interaction: {
+                            mode: 'nearest',
+                            intersect: false
+                        },
+                        animation: {
+                            duration: 0
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error("Error initializing charts:", error);
+            }
+        }
+
+        // Format time display (MM:SS)
+        function formatTime(seconds) {
+            try {
+                const minutes = Math.floor(seconds / 60);
+                const remainingSeconds = seconds % 60;
+                return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+            } catch (error) {
+                console.error("Error formatting time:", error);
+                return "00:00";
+            }
+        }
+
+        // Generate random price movement based on parameters
+        function generatePriceMovement(currentPrice, volatility, trend) {
+            try {
+                if (typeof currentPrice !== 'number' || isNaN(currentPrice)) {
+                    throw new Error("Current price must be a number");
+                }
+                
+                // Convert slider values to usable parameters
+                const volatilityFactor = parseFloat(volatility) / 5; // 1-10 scale to 0.2-2 factor
+                const trendBias = (parseFloat(trend) - 5) / 20; // 1-10 scale to -0.2 to +0.2 bias
+                
+                // Random component (more volatile = bigger potential moves)
+                const randomFactor = (Math.random() - 0.5) * volatilityFactor * 0.05;
+                
+                // Trend component
+                const trendFactor = trendBias * 0.01;
+                
+                // Calculate new price with random movement and trend bias
+                let newPrice = currentPrice * (1 + randomFactor + trendFactor);
+                
+                // Ensure price doesn't go below a minimum threshold
+                newPrice = Math.max(newPrice, 0.000001);
+                
+                return newPrice;
+            } catch (error) {
+                console.error("Error generating price movement:", error);
+                return currentPrice; // Return unchanged price on error
+            }
+        }
+
+        // Simulate a trading bot decision
+        function simulateBotDecision(price, priceHistory, tradingStrategy) {
+            try {
+                if (!Array.isArray(priceHistory) || priceHistory.length < 2) {
+                    return { decision: 'hold', reason: 'Insufficient price history' };
+                }
+                
+                // Calculate short-term price trend
+                const recentPrices = priceHistory.slice(-10);
+                const priceChange = (price / recentPrices[0].y - 1) * 100;
+                
+                // Different strategies have different thresholds for buying/selling
+                let buyThreshold, sellThreshold;
+                
+                switch (tradingStrategy) {
+                    case 'conservative':
+                        buyThreshold = -2; // Buy on 2% dip
+                        sellThreshold = 3; // Sell on 3% gain
+                        break;
+                    case 'balanced':
+                        buyThreshold = -1.5; // Buy on 1.5% dip
+                        sellThreshold = 4; // Sell on 4% gain
+                        break;
+                    case 'aggressive':
+                        buyThreshold = -1; // Buy on 1% dip
+                        sellThreshold = 5; // Sell on 5% gain
+                        break;
+                    default:
+                        buyThreshold = -1.5;
+                        sellThreshold = 4;
+                }
+                
+                // Check for buy signal (price dipping)
+                if (priceChange < buyThreshold) {
+                    return { decision: 'buy', reason: `Price dipped by ${Math.abs(priceChange).toFixed(2)}%` };
+                }
+                
+                // Check for sell signal (price rising)
+                if (priceChange > sellThreshold) {
+                    return { decision: 'sell', reason: `Price rose by ${priceChange.toFixed(2)}%` };
+                }
+                
+                // Default: hold
+                return { decision: 'hold', reason: 'No clear signal' };
+            } catch (error) {
+                console.error("Error in bot decision:", error);
+                return { decision: 'hold', reason: 'Error in analysis' };
+            }
+        }
+
+        // Calculate gas cost based on strategy
+        function calculateGasCost(gasStrategy, mevProtection) {
+            try {
+                let baseCost;
+                
+                switch (gasStrategy) {
+                    case 'low':
+                        baseCost = 0.001;
+                        break;
+                    case 'medium':
+                        baseCost = 0.002;
+                        break;
+                    case 'high':
+                        baseCost = 0.004;
+                        break;
+                    default:
+                        baseCost = 0.002;
+                }
+                
+                // Add MEV protection cost if enabled
+                const mevCost = mevProtection ? 0.001 : 0;
+                
+                return baseCost + mevCost;
+            } catch (error) {
+                console.error("Error calculating gas cost:", error);
+                return 0.002; // Default on error
+            }
+        }
+
+        // Execute a trade
+        function executeTrade(type, price, amount, gasStrategy, mevProtection) {
+            try {
+                if (typeof price !== 'number' || typeof amount !== 'number') {
+                    throw new Error("Price and amount must be numbers");
+                }
+                
+                const gasCost = calculateGasCost(gasStrategy, mevProtection);
+                let success = true;
+                let tokenAmount = 0;
+                let ethSpent = 0;
+                let ethReceived = 0;
+                
+                // Simulate transaction success/failure based on gas strategy
+                const successProbability = gasStrategy === 'high' ? 0.95 : 
+                                          gasStrategy === 'medium' ? 0.85 : 0.7;
+                
+                // MEV protection increases success probability
+                const adjustedProbability = mevProtection ? 
+                    Math.min(successProbability + 0.1, 0.98) : successProbability;
+                
+                success = Math.random() < adjustedProbability;
+                
+                if (type === 'buy' && success) {
+                    // Calculate how many tokens we can buy with our ETH (minus gas)
+                    const ethToSpend = amount - gasCost;
+                    if (ethToSpend <= 0) {
+                        return { success: false, reason: 'Insufficient funds after gas', gasCost };
+                    }
+                    
+                    tokenAmount = ethToSpend / price;
+                    ethSpent = amount;
+                    
+                    return {
+                        success: true,
+                        tokenAmount,
+                        ethSpent,
+                        ethReceived: 0,
+                        gasCost,
+                        price
+                    };
+                } else if (type === 'sell' && success) {
+                    // Calculate how much ETH we receive for our tokens (minus gas)
+                    ethReceived = (amount * price) - gasCost;
+                    
+                    if (ethReceived <= 0) {
+                        return { success: false, reason: 'Value too low after gas', gasCost };
+                    }
+                    
+                    return {
+                        success: true,
+                        tokenAmount: amount,
+                        ethSpent: 0,
+                        ethReceived,
+                        gasCost,
+                        price
+                    };
+                } else {
+                    return { 
+                        success: false, 
+                        reason: success ? 'Invalid trade type' : 'Transaction failed', 
+                        gasCost 
+                    };
+                }
+            } catch (error) {
+                console.error("Error executing trade:", error);
+                return { success: false, reason: 'Error processing trade', gasCost: 0.002 };
+            }
+        }
+
+        // Add a trade to the history table
+        function addTradeToHistory(time, type, price, profit, success) {
+            try {
+                if (!tradesTableBody) {
+                    console.error("Trades table body element not found");
+                    return;
+                }
+                
+                const row = document.createElement('tr');
+                
+                // Format time
+                const timeCell = document.createElement('td');
+                timeCell.className = 'pb-1';
+                timeCell.textContent = formatTime(time);
+                
+                // Trade type with status indicator
+                const typeCell = document.createElement('td');
+                typeCell.className = 'pb-1';
+                const typeSpan = document.createElement('span');
+                typeSpan.className = success ? 
+                    (type === 'buy' ? 'text-blue-400' : 'text-green-400') : 
+                    'text-red-400';
+                typeSpan.textContent = type.charAt(0).toUpperCase() + type.slice(1);
+                typeCell.appendChild(typeSpan);
+                
+                // Price
+                const priceCell = document.createElement('td');
+                priceCell.className = 'text-right pb-1';
+                priceCell.textContent = '$' + price.toFixed(6);
+                
+                // Profit/Loss
+                const profitCell = document.createElement('td');
+                profitCell.className = 'text-right pb-1';
+                if (profit !== null) {
+                    profitCell.textContent = (profit >= 0 ? '+' : '') + '$' + profit.toFixed(2);
+                    profitCell.className += profit >= 0 ? ' text-green-400' : ' text-red-400';
+                } else {
+                    profitCell.textContent = '-';
+                }
+                
+                // Add cells to row
+                row.appendChild(timeCell);
+                row.appendChild(typeCell);
+                row.appendChild(priceCell);
+                row.appendChild(profitCell);
+                
+                // Add row to table (at the top)
+                if (tradesTableBody.firstChild) {
+                    tradesTableBody.insertBefore(row, tradesTableBody.firstChild);
+                } else {
+                    tradesTableBody.appendChild(row);
+                }
+                
+                // Limit to 10 rows
+                while (tradesTableBody.children.length > 10) {
+                    tradesTableBody.removeChild(tradesTableBody.lastChild);
+                }
+            } catch (error) {
+                console.error("Error adding trade to history:", error);
+            }
+        }
+
+        // Update simulation statistics displays
+        function updateStatistics() {
+            try {
+                // Update trade count
+                if (tradeCountDisplay) {
+                    tradeCountDisplay.textContent = simulationData.trades.length;
+                }
+                
+                // Update success rate
+                if (successRateDisplay && simulationData.trades.length > 0) {
+                    const successRate = (simulationData.successfulTrades / simulationData.trades.length) * 100;
+                    successRateDisplay.textContent = successRate.toFixed(1) + '%';
+                }
+                
+                // Update average profit
+                if (avgProfitDisplay && simulationData.trades.length > 0) {
+                    const profits = simulationData.trades
+                        .filter(trade => trade.profit !== null)
+                        .map(trade => trade.profit);
+                    
+                    if (profits.length > 0) {
+                        const avgProfit = profits.reduce((sum, profit) => sum + profit, 0) / profits.length;
+                        avgProfitDisplay.textContent = '$' + avgProfit.toFixed(2);
+                        avgProfitDisplay.className = avgProfit >= 0 ? 'text-xl font-bold text-green-400' : 'text-xl font-bold text-red-400';
+                    }
+                }
+                
+                // Update gas spent
+                if (gasSpentDisplay) {
+                    gasSpentDisplay.textContent = simulationData.totalGasSpent.toFixed(4) + ' ETH';
+                }
+                
+                // Update current price
+                if (currentPriceDisplay && simulationData.prices.length > 0) {
+                    const currentPrice = simulationData.prices[simulationData.prices.length - 1].y;
+                    currentPriceDisplay.textContent = '$' + currentPrice.toFixed(6);
+                }
+                
+                // Update portfolio value and change
+                if (portfolioValueDisplay && portfolioChangeDisplay && simulationData.portfolioValues.length > 0) {
+                    const currentValue = simulationData.portfolioValues[simulationData.portfolioValues.length - 1].y;
+                    portfolioValueDisplay.textContent = '$' + currentValue.toFixed(2);
+                    
+                    const initialValue = simulationData.initialCapital * 1000; // Convert ETH to USD for display
+                    const percentChange = ((currentValue / initialValue) - 1) * 100;
+                    
+                    portfolioChangeDisplay.textContent = '(' + (percentChange >= 0 ? '+' : '') + percentChange.toFixed(2) + '%)';
+                    portfolioChangeDisplay.className = percentChange >= 0 ? 'ml-2 text-xs text-green-400' : 'ml-2 text-xs text-red-400';
+                }
+            } catch (error) {
+                console.error("Error updating statistics:", error);
+            }
+        }
+
+        // Run a single simulation step
+        function simulationStep() {
+            try {
+                simulationTime += 1;
+                
+                // Update time display
+                simulationTimeDisplay.textContent = 'Time: ' + formatTime(simulationTime);
+                
+                // Get current parameters
+                const volatility = volatilitySlider.value;
+                const trend = trendSlider.value;
+                const gasStrategy = gasStrategySelect.value;
+                const mevProtection = mevProtectionCheckbox.checked;
+                const tradingStrategy = tradingStrategySelect.value;
+                
+                // Generate new price
+                let currentPrice;
+                if (simulationData.prices.length === 0) {
+                    // Initial price
+                    currentPrice = 0.001;
+                } else {
+                    const lastPrice = simulationData.prices[simulationData.prices.length - 1].y;
+                    currentPrice = generatePriceMovement(lastPrice, volatility, trend);
+                }
+                
+                // Add price to history
+                const timestamp = new Date();
+                simulationData.prices.push({
+                    x: timestamp,
+                    y: currentPrice
+                });
+                
+                // Update price chart
+                if (priceChart && priceChart.data && Array.isArray(priceChart.data.datasets) && priceChart.data.datasets.length > 0) {
+                    priceChart.data.datasets[0].data = simulationData.prices;
+                    priceChart.update();
+                }
+                
+                // Make trading decision
+                const botDecision = simulateBotDecision(
+                    currentPrice, 
+                    simulationData.prices, 
+                    tradingStrategy
+                );
+                
+                // Execute trade if needed
+                let tradeResult = null;
+                let profit = null;
+                
+                if (botDecision.decision === 'buy' && simulationData.currentCapital > 0) {
+                    // Execute buy with available capital
+                    tradeResult = executeTrade(
+                        'buy', 
+                        currentPrice, 
+                        simulationData.currentCapital, 
+                        gasStrategy, 
+                        mevProtection
+                    );
+                    
+                    if (tradeResult.success) {
+                        // Update holdings
+                        simulationData.tokenHoldings = tradeResult.tokenAmount;
+                        simulationData.currentCapital = 0;
+                        simulationData.successfulTrades++;
+                    }
+                    
+                    // Track gas cost regardless of success
+                    simulationData.totalGasSpent += tradeResult.gasCost;
+                    
+                    // Add to trade history
+                    simulationData.trades.push({
+                        time: simulationTime,
+                        type: 'buy',
+                        price: currentPrice,
+                        amount: tradeResult.tokenAmount,
+                        success: tradeResult.success,
+                        profit: null
+                    });
+                    
+                    // Add to UI trade history
+                    addTradeToHistory(
+                        simulationTime, 
+                        'buy', 
+                        currentPrice, 
+                        null, 
+                        tradeResult.success
+                    );
+                    
+                } else if (botDecision.decision === 'sell' && simulationData.tokenHoldings > 0) {
+                    // Execute sell with available tokens
+                    tradeResult = executeTrade(
+                        'sell', 
+                        currentPrice, 
+                        simulationData.tokenHoldings, 
+                        gasStrategy, 
+                        mevProtection
+                    );
+                    
+                    if (tradeResult.success) {
+                        // Calculate profit in USD
+                        const initialValue = simulationData.initialCapital * 1000; // Convert ETH to USD
+                        const currentValue = tradeResult.ethReceived * 1000; // Convert ETH to USD
+                        profit = currentValue - initialValue;
+                        
+                        // Update holdings
+                        simulationData.currentCapital = tradeResult.ethReceived;
+                        simulationData.tokenHoldings = 0;
+                        simulationData.successfulTrades++;
+                    }
+                    
+                    // Track gas cost regardless of success
+                    simulationData.totalGasSpent += tradeResult.gasCost;
+                    
+                    // Add to trade history
+                    simulationData.trades.push({
+                        time: simulationTime,
+                        type: 'sell',
+                        price: currentPrice,
+                        amount: tradeResult.tokenAmount,
+                        success: tradeResult.success,
+                        profit: profit
+                    });
+                    
+                    // Add to UI trade history
+                    addTradeToHistory(
+                        simulationTime, 
+                        'sell', 
+                        currentPrice, 
+                        profit, 
+                        tradeResult.success
+                    );
+                }
+                
+                // Calculate current portfolio value in USD
+                let portfolioValue;
+                if (simulationData.tokenHoldings > 0) {
+                    // Value of tokens at current price
+                    portfolioValue = simulationData.tokenHoldings * currentPrice * 1000; // Convert to USD
+                } else {
+                    // Value of ETH holdings
+                    portfolioValue = simulationData.currentCapital * 1000; // Convert to USD
+                }
+                
+                // Add portfolio value to history
+                simulationData.portfolioValues.push({
+                    x: timestamp,
+                    y: portfolioValue
+                });
+                
+                // Update portfolio chart
+                if (portfolioChart && portfolioChart.data && Array.isArray(portfolioChart.data.datasets) && portfolioChart.data.datasets.length > 0) {
+                    portfolioChart.data.datasets[0].data = simulationData.portfolioValues;
+                    portfolioChart.update();
+                }
+                
+                // Update statistics
+                updateStatistics();
+                
+                // End simulation after 5 minutes (300 seconds)
+                if (simulationTime >= 300) {
+                    stopSimulation();
+                }
+            } catch (error) {
+                console.error("Error in simulation step:", error);
+            }
+        }
+
+        // Start the simulation
+        function startSimulation() {
+            try {
+                if (simulationRunning) {
+                    return;
+                }
+                
+                // Reset simulation data
+                simulationTime = 0;
+                simulationData = {
+                    prices: [],
+                    portfolioValues: [],
+                    trades: [],
+                    initialCapital: parseFloat(initialCapitalInput.value),
+                    currentCapital: parseFloat(initialCapitalInput.value),
+                    tokenHoldings: 0,
+                    successfulTrades: 0,
+                    totalGasSpent: 0
+                };
+                
+                // Clear trade history table
+                if (tradesTableBody) {
+                    tradesTableBody.innerHTML = '';
+                }
+                
+                // Initialize charts
+                initializeCharts();
+                
+                // Update UI
+                startSimulationButton.textContent = 'Simulation Running...';
+                startSimulationButton.disabled = true;
+                startSimulationButton.classList.add('bg-gray-600');
+                startSimulationButton.classList.remove('bg-green-600', 'hover:bg-green-700');
+                
+                // Disable inputs
+                volatilitySlider.disabled = true;
+                trendSlider.disabled = true;
+                gasStrategySelect.disabled = true;
+                mevProtectionCheckbox.disabled = true;
+                tradingStrategySelect.disabled = true;
+                initialCapitalInput.disabled = true;
+                
+                // Start simulation interval (1 second per step)
+                simulationRunning = true;
+                simulationInterval = setInterval(simulationStep, 1000);
+                
+                // Run first step immediately
+                simulationStep();
+            } catch (error) {
+                console.error("Error starting simulation:", error);
+            }
+        }
+
+        // Stop the simulation
+        function stopSimulation() {
+            try {
+                if (!simulationRunning) {
+                    return;
+                }
+                
+                // Clear interval
+                if (simulationInterval) {
+                    clearInterval(simulationInterval);
+                    simulationInterval = null;
+                }
+                
+                // Update UI
+                startSimulationButton.textContent = 'Start Simulation';
+                startSimulationButton.disabled = false;
+                startSimulationButton.classList.remove('bg-gray-600');
+                startSimulationButton.classList.add('bg-green-600', 'hover:bg-green-700');
+                
+                // Enable inputs
+                volatilitySlider.disabled = false;
+                trendSlider.disabled = false;
+                gasStrategySelect.disabled = false;
+                mevProtectionCheckbox.disabled = false;
+                tradingStrategySelect.disabled = false;
+                initialCapitalInput.disabled = false;
+                
+                simulationRunning = false;
+            } catch (error) {
+                console.error("Error stopping simulation:", error);
+            }
+        }
+
+        // Reset the simulation
+        function resetSimulation() {
+            try {
+                // Stop simulation if running
+                stopSimulation();
+                
+                // Reset simulation data
+                simulationTime = 0;
+                simulationData = {
+                    prices: [],
+                    portfolioValues: [],
+                    trades: [],
+                    initialCapital: parseFloat(initialCapitalInput.value),
+                    currentCapital: parseFloat(initialCapitalInput.value),
+                    tokenHoldings: 0,
+                    successfulTrades: 0,
+                    totalGasSpent: 0
+                };
+                
+                // Clear trade history table
+                if (tradesTableBody) {
+                    tradesTableBody.innerHTML = '';
+                }
+                
+                // Reset displays
+                simulationTimeDisplay.textContent = 'Time: 00:00';
+                currentPriceDisplay.textContent = '$0.00';
+                portfolioValueDisplay.textContent = '$0.00';
+                portfolioChangeDisplay.textContent = '(+0.00%)';
+                tradeCountDisplay.textContent = '0';
+                successRateDisplay.textContent = '0%';
+                avgProfitDisplay.textContent = '$0.00';
+                gasSpentDisplay.textContent = '0.00 ETH';
+                
+                // Initialize charts
+                initializeCharts();
+            } catch (error) {
+                console.error("Error resetting simulation:", error);
+            }
+        }
+
+        // Event listeners
+        startSimulationButton.addEventListener('click', startSimulation);
+        resetSimulationButton.addEventListener('click', resetSimulation);
+
+        // Initialize on page load
+        window.addEventListener('load', function() {
+            try {
+                // Initialize charts
+                initializeCharts();
+                
+                // Set initial slider value displays
+                volatilityValue.textContent = volatilitySlider.value;
+                trendValue.textContent = trendSlider.value;
+                
+                // Handle window resize for charts
+                window.addEventListener('resize', function() {
+                    if (priceChart) {
+                        priceChart.resize();
+                    }
+                    if (portfolioChart) {
+                        portfolioChart.resize();
+                    }
+                });
+            } catch (error) {
+                console.error("Error in page initialization:", error);
+            }
+        });
+    </script>
+<script>window.parent.postMessage({ action: "ready" }, "*"); 
+ 
+window.console = new Proxy(console, {
+  get(target, prop) {
+    if (['log', 'warn', 'error'].includes(prop)) {
+      return new Proxy(target[prop], {
+        apply(fn, thisArg, args) {
+          fn.apply(thisArg, args);
+          window.parent.postMessage({ action: 'console', 
+            type: prop, 
+            args: args.map((arg) => {
+              try {
+                return JSON.stringify(arg).replace(/^["']|["']$/g, '');
+              } catch (e) {
+                return arg;
+              }
+            }) 
+          }, '*');
+        }
+      });
+    }
+    return target[prop];
+  }
+});
+</script></body>
+</html>
