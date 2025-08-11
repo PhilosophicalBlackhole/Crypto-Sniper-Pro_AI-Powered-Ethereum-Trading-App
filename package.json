@@ -1,5 +1,5 @@
 {
-  "name": "Crypto-Sniper-Pro",
+  "name": "CryptoSniper.Pro",
   "version": "1.0.0",
   "scripts": {
     "dev": "node scripts/build.mjs",
@@ -71,7 +71,8 @@
     "tailwindcss-animate": "latest",
     "typescript": "latest",
     "@types/node": "latest",
-    "web-vitals": "latest"
+    "web-vitals": "latest",
+    "@supabase/supabase-js": "^2.48.1"
   },
   "devDependencies": {
     "@types/react": "^19.1.3",

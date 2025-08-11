@@ -92,3 +92,37 @@
   backface-visibility: hidden;
   perspective: 1000px;
 }
+
+/* -------------------------------------------------
+   Overview Glass Mode
+   Purpose: Reduce opacity of solid cards inside the
+   MARKET OVERVIEW tab so the background carousel
+   remains visible while preserving readability.
+   Scoped via [data-glass="light"] only.
+-------------------------------------------------- */
+[data-glass="light"] * {
+  /* Subtle layer blur to keep text readable on busy backgrounds */
+  backdrop-filter: blur(6px);
+}
+
+/* Lighten solid card backgrounds commonly used inside components */
+[data-glass="light"] .bg-slate-900 {
+  /* slate-900 rgba approximation with low alpha */
+  background-color: rgba(15, 23, 42, 0.14) !important;
+}
+
+[data-glass="light"] .bg-slate-800 {
+  /* slate-800 rgba approximation with medium-low alpha for inner tiles */
+  background-color: rgba(30, 41, 59, 0.40) !important;
+}
+
+/* Soften borders to match the glass look */
+[data-glass="light"] .border-slate-800 {
+  border-color: rgba(51, 65, 85, 0.25) !important;
+}
+[data-glass="light"] .border-slate-700 {
+  border-color: rgba(51, 65, 85, 0.20) !important;
+}
+
+/* Keep badges and pills readable; leave their explicit colors intact */
+/* No override for text colors to maintain contrast */

@@ -1,14 +1,18 @@
 /**
  * Authentication modal component with login and signup functionality
+ * - Uses Supabase (managed) via authService when configured, otherwise device-local demo auth.
+ * - Includes device-local reset flow and Supabase email reset/magic link when available.
+ * - Explicit autocomplete/name attributes to reduce unintended autofill.
  */
 
-import React, { useState } from 'react';
-import { X, Eye, EyeOff, User, Lock, Mail, Crown } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { X, Eye, EyeOff, User as UserIcon, Lock, Mail, Link as LinkIcon, KeyRound } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import authService, { type AuthUser } from '../services/authService';
 
 interface User {
   id: string;
@@ -25,221 +29,191 @@ interface AuthModalProps {
   onSuccess: (user: User) => void;
 }
 
-interface StoredCredentials {
-  email: string;
-  hashedPassword: string;
-  name: string;
-  plan: 'free' | 'pro' | 'premium';
-  avatar?: string;
-  createdAt: number;
+/**
+ * Map AuthUser to app user shape.
+ */
+function toUser(u: AuthUser): User {
+  return { id: u.id, name: u.name, email: u.email, plan: u.plan, avatar: u.avatar ?? null };
 }
 
+/**
+ * AuthModal component
+ */
 export function AuthModal({ isOpen, onClose, defaultTab, onSuccess }: AuthModalProps) {
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Login form state
-  const [loginForm, setLoginForm] = useState({
-    email: '',
-    password: '',
-    rememberMe: true
-  });
+  // Managed auth available?
+  const [managed, setManaged] = useState(false);
+  useEffect(() => {
+    setManaged(authService.isManaged());
+  }, []);
 
-  // Signup form state
+  // Forms
+  const [loginForm, setLoginForm] = useState({ email: '', password: '', rememberMe: true });
   const [signupForm, setSignupForm] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
-    plan: 'free' as 'free' | 'pro' | 'premium'
+    plan: 'free' as 'free' | 'pro' | 'premium',
   });
+
+  // Local reset (demo) UI
+  const [showReset, setShowReset] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetNewPass, setResetNewPass] = useState('');
+  const [resetConfirmPass, setResetConfirmPass] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [resetStep, setResetStep] = useState<1 | 2>(1);
 
   if (!isOpen) return null;
 
   /**
-   * Simple hash function for password storage (demo purposes)
-   * In production, use proper bcrypt or similar
-   */
-  const hashPassword = (password: string): string => {
-    let hash = 0;
-    for (let i = 0; i < password.length; i++) {
-      const char = password.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return hash.toString(36);
-  };
-
-  /**
-   * Get stored user credentials from localStorage
-   */
-  const getStoredCredentials = (email: string): StoredCredentials | null => {
-    try {
-      const stored = localStorage.getItem(`cryptosniper_creds_${email}`);
-      return stored ? JSON.parse(stored) : null;
-    } catch (error) {
-      console.error('Error reading stored credentials:', error);
-      return null;
-    }
-  };
-
-  /**
-   * Store user credentials in localStorage
-   */
-  const storeCredentials = (email: string, credentials: StoredCredentials): void => {
-    try {
-      localStorage.setItem(`cryptosniper_creds_${email}`, JSON.stringify(credentials));
-    } catch (error) {
-      console.error('Error storing credentials:', error);
-    }
-  };
-
-  /**
-   * Handle user login
+   * Handle login using managed auth when available, else demo fallback.
    */
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-
     try {
-      // Validate input
-      if (!loginForm.email || !loginForm.password) {
-        throw new Error('Please fill in all fields');
-      }
-
-      // Special handling for creator account
-      const isCreator = loginForm.email === 'cryptosniper.pro@proton.me';
-      console.log('Login attempt:', { 
-        email: loginForm.email, 
-        isCreator, 
-        timestamp: new Date().toISOString() 
-      });
-      
-      if (isCreator && loginForm.password === 'Aptyhnub2025%67') {
-        // Creator login with full Pro access
-        const creatorUser: User = {
-          id: 'creator_admin_001',
-          name: 'CryptoSniper Creator',
-          email: 'cryptosniper.pro@proton.me',
-          plan: 'premium', // Full premium access
-          avatar: null
-        };
-
-        // Store creator session
-        if (loginForm.rememberMe) {
-          localStorage.setItem('cryptosniper_remember_me', 'true');
-        }
-
-        onSuccess(creatorUser);
-        setLoginForm({ email: '', password: '', rememberMe: true });
-        return;
-      }
-
-      // Regular user login flow
-      const storedCreds = getStoredCredentials(loginForm.email);
-      if (!storedCreds) {
-        throw new Error('Account not found. Please sign up first.');
-      }
-
-      // Verify password
-      const hashedInput = hashPassword(loginForm.password);
-      if (hashedInput !== storedCreds.hashedPassword) {
-        throw new Error('Invalid email or password');
-      }
-
-      // Create user object
-      const user: User = {
-        id: btoa(loginForm.email), // Simple ID generation
-        name: storedCreds.name,
-        email: loginForm.email,
-        plan: storedCreds.plan,
-        avatar: storedCreds.avatar
-      };
-
-      // Store remember me preference
+      if (!loginForm.email || !loginForm.password) throw new Error('Please fill in all fields');
+      const u = await authService.signIn(loginForm.email.trim(), loginForm.password);
       if (loginForm.rememberMe) {
         localStorage.setItem('cryptosniper_remember_me', 'true');
+      } else {
+        localStorage.removeItem('cryptosniper_remember_me');
       }
-
-      // Call success handler
-      onSuccess(user);
-      
-      // Reset form
+      onSuccess(toUser(u));
       setLoginForm({ email: '', password: '', rememberMe: true });
-      
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Login failed');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed');
     } finally {
       setLoading(false);
     }
   };
 
   /**
-   * Handle user signup
+   * Handle signup using managed auth when available, else demo fallback.
    */
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
-
     try {
-      // Validate input
       if (!signupForm.name || !signupForm.email || !signupForm.password) {
         throw new Error('Please fill in all required fields');
       }
-
       if (signupForm.password !== signupForm.confirmPassword) {
         throw new Error('Passwords do not match');
       }
-
       if (signupForm.password.length < 6) {
         throw new Error('Password must be at least 6 characters long');
       }
 
-      // Check if user already exists
-      const existingCreds = getStoredCredentials(signupForm.email);
-      if (existingCreds) {
-        throw new Error('Account with this email already exists');
+      const { user, message } = await authService.signUp(
+        signupForm.name.trim(),
+        signupForm.email.trim(),
+        signupForm.password,
+        signupForm.plan
+      );
+
+      if (user) {
+        onSuccess(toUser(user));
+      } else if (message) {
+        setError(message);
       }
-
-      // Store new credentials
-      const credentials: StoredCredentials = {
-        email: signupForm.email,
-        hashedPassword: hashPassword(signupForm.password),
-        name: signupForm.name,
-        plan: signupForm.plan,
-        createdAt: Date.now()
-      };
-
-      storeCredentials(signupForm.email, credentials);
-
-      // Create user object
-      const user: User = {
-        id: btoa(signupForm.email),
-        name: signupForm.name,
-        email: signupForm.email,
-        plan: signupForm.plan
-      };
-
-      // Call success handler
-      onSuccess(user);
-      
-      // Reset form
-      setSignupForm({
-        name: '',
-        email: '',
-        password: '',
-        confirmPassword: '',
-        plan: 'free'
-      });
-      
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'Signup failed');
+      setSignupForm({ name: '', email: '', password: '', confirmPassword: '', plan: 'free' });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Signup failed');
     } finally {
       setLoading(false);
+    }
+  };
+
+  /**
+   * Send magic link (managed only).
+   */
+  const handleMagicLink = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      if (!loginForm.email) throw new Error('Enter your email to receive a magic link');
+      const res = await authService.sendMagicLink(loginForm.email.trim());
+      setError(res.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send magic link');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Begin reset. Managed: send email reset; Demo: move to step 2 (set new password).
+   */
+  const handleBeginReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError('');
+    if (!resetEmail) {
+      setResetError('Please enter your email');
+      return;
+    }
+    if (managed) {
+      try {
+        const res = await authService.resetPassword(resetEmail.trim());
+        setShowReset(false);
+        setActiveTab('login');
+        setError(res.message || 'Password reset link sent.');
+      } catch (err) {
+        setResetError(err instanceof Error ? err.message : 'Failed to send reset email');
+      }
+      return;
+    }
+    setResetStep(2);
+  };
+
+  /**
+   * Complete reset in demo mode by updating the stored local hash.
+   */
+  const handleCompleteReset = (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError('');
+    if (!resetNewPass || resetNewPass.length < 6) {
+      setResetError('Password must be at least 6 characters long');
+      return;
+    }
+    if (resetNewPass !== resetConfirmPass) {
+      setResetError('Passwords do not match');
+      return;
+    }
+    try {
+      const key = `cryptosniper_creds_${resetEmail.trim().toLowerCase()}`;
+      const stored = localStorage.getItem(key);
+      if (!stored) {
+        setResetError('Account not found on this device.');
+        return;
+      }
+      // lightweight hash (demo)
+      let hash = 0;
+      for (let i = 0; i < resetNewPass.length; i++) {
+        const c = resetNewPass.charCodeAt(i);
+        hash = (hash << 5) - hash + c;
+        hash |= 0;
+      }
+      const creds = JSON.parse(stored);
+      const updated = { ...creds, hashedPassword: hash.toString(36) };
+      localStorage.setItem(key, JSON.stringify(updated));
+      setShowReset(false);
+      setResetEmail('');
+      setResetNewPass('');
+      setResetConfirmPass('');
+      setResetStep(1);
+      setActiveTab('login');
+      setError('Password updated. Please sign in.');
+    } catch {
+      setResetError('Failed to update password');
     }
   };
 
@@ -255,16 +229,21 @@ export function AuthModal({ isOpen, onClose, defaultTab, onSuccess }: AuthModalP
           >
             <X className="h-4 w-4" />
           </Button>
-          <CardTitle className="text-white text-center">
-            Welcome to CryptoSniper
-          </CardTitle>
+          <CardTitle className="text-white text-center">Welcome to CryptoSniper</CardTitle>
           <CardDescription className="text-center">
             {activeTab === 'login' ? 'Sign in to your account' : 'Create a new account'}
           </CardDescription>
         </CardHeader>
 
         <CardContent>
-          <Tabs value={activeTab} onValueChange={(value: any) => setActiveTab(value)}>
+          {/* Mode helper */}
+          <p className="text-[11px] text-slate-500 mb-3">
+            {managed
+              ? 'Managed Auth enabled (Supabase). Cross-device sign-in and email recovery available.'
+              : 'Demo mode: accounts are stored on this device only. Use the same browser to sign back in.'}
+          </p>
+
+          <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)}>
             <TabsList className="grid w-full grid-cols-2 bg-slate-800">
               <TabsTrigger value="login" className="text-slate-300 data-[state=active]:text-white">
                 Sign In
@@ -274,9 +253,9 @@ export function AuthModal({ isOpen, onClose, defaultTab, onSuccess }: AuthModalP
               </TabsTrigger>
             </TabsList>
 
-            {/* Login Tab */}
+            {/* Login */}
             <TabsContent value="login" className="space-y-4 mt-6">
-              <form onSubmit={handleLogin} className="space-y-4">
+              <form onSubmit={handleLogin} className="space-y-4" autoComplete="off">
                 <div className="space-y-2">
                   <Label htmlFor="login-email" className="text-slate-300">
                     Email
@@ -285,11 +264,13 @@ export function AuthModal({ isOpen, onClose, defaultTab, onSuccess }: AuthModalP
                     <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                     <Input
                       id="login-email"
+                      name="cs_email_login"
                       type="email"
                       placeholder="Enter your email"
                       value={loginForm.email}
                       onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
                       className="pl-10 bg-slate-800 border-slate-600 text-white"
+                      autoComplete="username"
                       required
                     />
                   </div>
@@ -303,11 +284,13 @@ export function AuthModal({ isOpen, onClose, defaultTab, onSuccess }: AuthModalP
                     <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                     <Input
                       id="login-password"
+                      name="cs_password_login"
                       type={showPassword ? 'text' : 'password'}
                       placeholder="Enter your password"
                       value={loginForm.password}
                       onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
                       className="pl-10 pr-10 bg-slate-800 border-slate-600 text-white"
+                      autoComplete="current-password"
                       required
                     />
                     <Button
@@ -322,17 +305,44 @@ export function AuthModal({ isOpen, onClose, defaultTab, onSuccess }: AuthModalP
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="remember-me"
-                    checked={loginForm.rememberMe}
-                    onChange={(e) => setLoginForm({ ...loginForm, rememberMe: e.target.checked })}
-                    className="rounded border-slate-600 bg-slate-800 text-blue-600"
-                  />
-                  <Label htmlFor="remember-me" className="text-sm text-slate-300">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-sm text-slate-300">
+                    <input
+                      type="checkbox"
+                      id="remember-me"
+                      checked={loginForm.rememberMe}
+                      onChange={(e) => setLoginForm({ ...loginForm, rememberMe: e.target.checked })}
+                      className="rounded border-slate-600 bg-slate-800 text-blue-600"
+                    />
                     Remember me
-                  </Label>
+                  </label>
+
+                  <div className="flex items-center gap-3">
+                    {managed && (
+                      <button
+                        type="button"
+                        onClick={handleMagicLink}
+                        className="text-xs text-emerald-300 hover:underline flex items-center gap-1"
+                        title="Send a sign-in link to your email"
+                      >
+                        <LinkIcon className="h-3.5 w-3.5" />
+                        Magic link
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowReset(true);
+                        setResetEmail(loginForm.email);
+                        setResetError('');
+                        setResetStep(1);
+                      }}
+                      className="text-xs text-blue-400 hover:underline"
+                      title={managed ? 'Send a password reset email' : 'Reset password stored on this device'}
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
                 </div>
 
                 {error && (
@@ -341,51 +351,30 @@ export function AuthModal({ isOpen, onClose, defaultTab, onSuccess }: AuthModalP
                   </div>
                 )}
 
-                <Button
-                  type="submit"
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                  disabled={loading}
-                >
+                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading}>
                   {loading ? 'Signing In...' : 'Sign In'}
                 </Button>
-
-                {/* Creator Quick Login */}
-                <div className="mt-3 pt-3 border-t border-slate-700">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setLoginForm({
-                        email: 'cryptosniper.pro@proton.me',
-                        password: 'Aptyhnub2025%67',
-                        rememberMe: true
-                      });
-                    }}
-                    className="w-full text-xs border-purple-600 text-purple-400 hover:bg-purple-600 hover:text-white"
-                  >
-                    👑 Creator Login (Auto-fill)
-                  </Button>
-                </div>
               </form>
             </TabsContent>
 
-            {/* Signup Tab */}
+            {/* Signup */}
             <TabsContent value="signup" className="space-y-4 mt-6">
-              <form onSubmit={handleSignup} className="space-y-4">
+              <form onSubmit={handleSignup} className="space-y-4" autoComplete="off">
                 <div className="space-y-2">
                   <Label htmlFor="signup-name" className="text-slate-300">
                     Full Name
                   </Label>
                   <div className="relative">
-                    <User className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                    <UserIcon className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                     <Input
                       id="signup-name"
+                      name="cs_name_signup"
                       type="text"
                       placeholder="Enter your full name"
                       value={signupForm.name}
                       onChange={(e) => setSignupForm({ ...signupForm, name: e.target.value })}
                       className="pl-10 bg-slate-800 border-slate-600 text-white"
+                      autoComplete="name"
                       required
                     />
                   </div>
@@ -399,11 +388,13 @@ export function AuthModal({ isOpen, onClose, defaultTab, onSuccess }: AuthModalP
                     <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                     <Input
                       id="signup-email"
+                      name="cs_email_signup"
                       type="email"
                       placeholder="Enter your email"
                       value={signupForm.email}
                       onChange={(e) => setSignupForm({ ...signupForm, email: e.target.value })}
                       className="pl-10 bg-slate-800 border-slate-600 text-white"
+                      autoComplete="email"
                       required
                     />
                   </div>
@@ -417,11 +408,13 @@ export function AuthModal({ isOpen, onClose, defaultTab, onSuccess }: AuthModalP
                     <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                     <Input
                       id="signup-password"
+                      name="cs_password_signup"
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="Create a password (min 6 chars)"
+                      placeholder="Create a password"
                       value={signupForm.password}
                       onChange={(e) => setSignupForm({ ...signupForm, password: e.target.value })}
                       className="pl-10 pr-10 bg-slate-800 border-slate-600 text-white"
+                      autoComplete="new-password"
                       required
                     />
                     <Button
@@ -437,54 +430,21 @@ export function AuthModal({ isOpen, onClose, defaultTab, onSuccess }: AuthModalP
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="confirm-password" className="text-slate-300">
+                  <Label htmlFor="signup-password2" className="text-slate-300">
                     Confirm Password
                   </Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                    <KeyRound className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                     <Input
-                      id="confirm-password"
-                      type={showPassword ? 'text' : 'password'}
+                      id="signup-password2"
+                      type="password"
                       placeholder="Confirm your password"
                       value={signupForm.confirmPassword}
                       onChange={(e) => setSignupForm({ ...signupForm, confirmPassword: e.target.value })}
                       className="pl-10 bg-slate-800 border-slate-600 text-white"
+                      autoComplete="new-password"
                       required
                     />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-slate-300">Plan Selection</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Button
-                      type="button"
-                      variant={signupForm.plan === 'free' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setSignupForm({ ...signupForm, plan: 'free' })}
-                      className="text-xs"
-                    >
-                      Free
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={signupForm.plan === 'pro' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setSignupForm({ ...signupForm, plan: 'pro' })}
-                      className="text-xs"
-                    >
-                      <Crown className="h-3 w-3 mr-1" />
-                      Pro
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={signupForm.plan === 'premium' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setSignupForm({ ...signupForm, plan: 'premium' })}
-                      className="text-xs"
-                    >
-                      Premium
-                    </Button>
                   </div>
                 </div>
 
@@ -494,24 +454,110 @@ export function AuthModal({ isOpen, onClose, defaultTab, onSuccess }: AuthModalP
                   </div>
                 )}
 
-                <Button
-                  type="submit"
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                  disabled={loading}
-                >
-                  {loading ? 'Creating Account...' : 'Create Account'}
+                <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading}>
+                  {loading ? 'Creating account...' : 'Create Account'}
                 </Button>
               </form>
             </TabsContent>
           </Tabs>
         </CardContent>
-
-        <CardFooter className="text-center">
-          <p className="text-xs text-slate-400">
-            By signing up, you agree to our terms of service and privacy policy
-          </p>
-        </CardFooter>
       </Card>
+
+      {/* Forgot Password Modal */}
+      {showReset && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-md bg-slate-900 border-slate-700">
+            <CardHeader className="relative">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowReset(false)}
+                className="absolute top-2 right-2 h-8 w-8 p-0 text-slate-400 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <CardTitle className="text-white text-center">Reset Password</CardTitle>
+              <CardDescription className="text-center">
+                {managed ? 'Enter your email to receive a reset link.' : 'Update the password stored on this device.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {resetStep === 1 && (
+                <form onSubmit={handleBeginReset} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="reset-email" className="text-slate-300">
+                      Email
+                    </Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                      <Input
+                        id="reset-email"
+                        type="email"
+                        placeholder="Enter your account email"
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                        className="pl-10 bg-slate-800 border-slate-600 text-white"
+                        autoComplete="email"
+                        required
+                      />
+                    </div>
+                  </div>
+                  {resetError && (
+                    <div className="text-red-400 text-sm bg-red-900/20 border border-red-800 rounded-md p-3">
+                      {resetError}
+                    </div>
+                  )}
+                  <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading}>
+                    {managed ? 'Send Reset Email' : 'Continue'}
+                  </Button>
+                </form>
+              )}
+              {!managed && resetStep === 2 && (
+                <form onSubmit={handleCompleteReset} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="new-pass" className="text-slate-300">
+                      New Password
+                    </Label>
+                    <Input
+                      id="new-pass"
+                      type="password"
+                      placeholder="New password"
+                      value={resetNewPass}
+                      onChange={(e) => setResetNewPass(e.target.value)}
+                      className="bg-slate-800 border-slate-600 text-white"
+                      autoComplete="new-password"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-pass2" className="text-slate-300">
+                      Confirm New Password
+                    </Label>
+                    <Input
+                      id="new-pass2"
+                      type="password"
+                      placeholder="Confirm password"
+                      value={resetConfirmPass}
+                      onChange={(e) => setResetConfirmPass(e.target.value)}
+                      className="bg-slate-800 border-slate-600 text-white"
+                      autoComplete="new-password"
+                      required
+                    />
+                  </div>
+                  {resetError && (
+                    <div className="text-red-400 text-sm bg-red-900/20 border border-red-800 rounded-md p-3">
+                      {resetError}
+                    </div>
+                  )}
+                  <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700" disabled={loading}>
+                    Update Password
+                  </Button>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

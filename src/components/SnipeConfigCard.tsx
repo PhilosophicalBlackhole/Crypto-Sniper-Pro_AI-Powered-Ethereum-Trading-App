@@ -14,33 +14,49 @@ import { HelpTooltip } from './HelpTooltip';
 import { AdvancedSettings } from './AdvancedSettings';
 import { SavedConfigsManager } from './SavedConfigsManager';
 import { SnipeConfig, MarketData } from '../types/trading';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
 interface SnipeConfigCardProps {
+  /** Snipe config this card controls */
   config: SnipeConfig;
+  /** Optional live market data for the token */
   marketData?: MarketData;
+  /** Update handler for this config */
   onUpdate: (id: string, updates: Partial<SnipeConfig>) => void;
+  /** Remove handler for this config */
   onRemove: (id: string) => void;
 }
 
+/**
+ * SnipeConfigCard - shows and edits one snipe configuration.
+ * - Gated actions: Save and Start require Ethereum Mainnet. Pause is always allowed.
+ */
 export function SnipeConfigCard({ config, marketData, onUpdate, onRemove }: SnipeConfigCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editConfig, setEditConfig] = useState(config);
   const [userConfirmed, setUserConfirmed] = useState(false);
 
+  // Network gating for live actions
+  const { isMainnet, networkName, switchToMainnet } = useNetworkStatus();
+
+  /** Save current edits back to parent */
   const handleSave = () => {
     onUpdate(config.id, editConfig);
     setIsEditing(false);
   };
 
+  /** Cancel editing, restore original */
   const handleCancel = () => {
     setEditConfig(config);
     setIsEditing(false);
   };
 
+  /** Format price for display */
   const formatPrice = (price: number) => {
     return price.toFixed(8);
   };
 
+  /** Color token for price change */
   const getPriceChangeColor = (change: number) => {
     if (change > 0) return 'text-green-400';
     if (change < 0) return 'text-red-400';
@@ -61,17 +77,28 @@ export function SnipeConfigCard({ config, marketData, onUpdate, onRemove }: Snip
     );
   };
 
+  /** Get UX message for validation failure */
   const getValidationMessage = () => {
-    if (config.targetPrice <= 0) return "Please set a target price";
-    if (config.maxPrice <= 0) return "Please set a maximum price";
-    if (config.amount <= 0) return "Please set an amount to trade";
-    if (config.slippage <= 0) return "Please set slippage tolerance";
-    if (config.maxPrice < config.targetPrice) return "Max price must be >= target price";
-    if (config.amount > 10) return "Amount seems too high (>10 ETH)";
-    if (config.slippage > 50) return "Slippage seems too high (>50%)";
-    if (!userConfirmed) return "Please confirm your settings below";
-    return "";
+    if (config.targetPrice <= 0) return 'Please set a target price';
+    if (config.maxPrice <= 0) return 'Please set a maximum price';
+    if (config.amount <= 0) return 'Please set an amount to trade';
+    if (config.slippage <= 0) return 'Please set slippage tolerance';
+    if (config.maxPrice < config.targetPrice) return 'Max price must be >= target price';
+    if (config.amount > 10) return 'Amount seems too high (>10 ETH)';
+    if (config.slippage > 50) return 'Slippage seems too high (>50%)';
+    if (!userConfirmed) return 'Please confirm your settings below';
+    return '';
   };
+
+  // Toggle button gating:
+  // - If already enabled, allow Pause even on testnet (safety).
+  // - If currently disabled, require Mainnet + valid config to Start.
+  const canToggle = config.enabled ? true : (isMainnet && isConfigurationValid());
+  const startButtonLabel = !isMainnet
+    ? 'Switch to Mainnet to Start'
+    : isConfigurationValid()
+      ? 'Start Sniping'
+      : 'Configure Settings First';
 
   return (
     <Card className="bg-slate-900 border-slate-800">
@@ -84,9 +111,9 @@ export function SnipeConfigCard({ config, marketData, onUpdate, onRemove }: Snip
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <Badge 
-              variant={config.enabled ? "default" : "secondary"}
-              className={config.enabled ? "bg-green-600 text-white border-green-500" : "bg-slate-600 text-slate-200 border-slate-500"}
+            <Badge
+              variant={config.enabled ? 'default' : 'secondary'}
+              className={config.enabled ? 'bg-green-600 text-white border-green-500' : 'bg-slate-600 text-slate-200 border-slate-500'}
             >
               {config.enabled ? 'Active' : 'Inactive'}
             </Badge>
@@ -143,6 +170,28 @@ export function SnipeConfigCard({ config, marketData, onUpdate, onRemove }: Snip
 
         {isEditing ? (
           <div className="space-y-4">
+            {/* Network gating helper when not on mainnet */}
+            {!isMainnet && (
+              <div className="p-3 bg-amber-900/20 border border-amber-500/40 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5" />
+                  <div className="text-amber-200 text-sm">
+                    You are on {networkName || 'a test network'}. Saving live sniping changes is only available on Ethereum Mainnet.
+                    <div className="mt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={switchToMainnet}
+                        className="bg-transparent border-emerald-500 text-emerald-300 hover:bg-emerald-600/10"
+                      >
+                        Switch to Mainnet
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <div className="flex items-center gap-1 mb-2">
@@ -231,10 +280,15 @@ export function SnipeConfigCard({ config, marketData, onUpdate, onRemove }: Snip
             </div>
 
             <div className="flex gap-2">
-              <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
+              <Button
+                onClick={handleSave}
+                disabled={!isMainnet}
+                title={!isMainnet ? 'Switch to Ethereum Mainnet to save live sniping changes' : undefined}
+                className={`bg-green-600 hover:bg-green-700 ${!isMainnet ? 'opacity-60 cursor-not-allowed' : ''}`}
+              >
                 Save Changes
               </Button>
-              <Button onClick={handleCancel} variant="outline" className="border-slate-600 text-slate-300">
+              <Button onClick={handleCancel} variant="outline" className="bg-transparent border-slate-600 text-slate-300">
                 Cancel
               </Button>
             </div>
@@ -380,14 +434,14 @@ export function SnipeConfigCard({ config, marketData, onUpdate, onRemove }: Snip
 
               <Button
                 onClick={() => onUpdate(config.id, { enabled: !config.enabled })}
-                disabled={!config.enabled && !isConfigurationValid()}
+                disabled={!canToggle}
                 className={`w-full ${
-                  config.enabled 
-                    ? 'bg-red-600 hover:bg-red-700' 
-                    : isConfigurationValid() 
-                      ? 'bg-green-600 hover:bg-green-700' 
-                      : 'bg-gray-600 cursor-not-allowed opacity-50'
-                }`}
+                  config.enabled
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : isMainnet && isConfigurationValid()
+                      ? 'bg-green-600 hover:bg-green-700'
+                      : 'bg-gray-600'
+                } ${!canToggle ? 'opacity-60 cursor-not-allowed' : ''}`}
               >
                 {config.enabled ? (
                   <>
@@ -397,7 +451,7 @@ export function SnipeConfigCard({ config, marketData, onUpdate, onRemove }: Snip
                 ) : (
                   <>
                     <Play className="h-4 w-4 mr-2" />
-                    {isConfigurationValid() ? 'Start Sniping' : 'Configure Settings First'}
+                    {startButtonLabel}
                   </>
                 )}
               </Button>

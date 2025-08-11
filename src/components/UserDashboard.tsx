@@ -1,11 +1,12 @@
 /**
  * User dashboard component for authenticated users
+ * - Adds header network indicator and a compact sidebar network dot for mobile visibility.
  */
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { 
@@ -23,8 +24,10 @@ import {
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { AffiliateBanner } from './AffiliateBanner';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
 interface UserDashboardProps {
+  /** Authenticated user info */
   user: {
     id: string;
     name: string;
@@ -32,16 +35,26 @@ interface UserDashboardProps {
     plan: 'free' | 'pro' | 'premium';
     avatar?: string | null;
   };
+  /** Logout handler */
   onLogout: () => void;
+  /** Router callback for switching dashboard pages */
   onNavigate: (page: string) => void;
+  /** Routed content */
   children: React.ReactNode;
 }
 
+/**
+ * UserDashboard - shell layout with header, sidebar, and main content.
+ * Adds a small network status badge (dot + name) for transparency.
+ */
 export function UserDashboard({ user, onLogout, onNavigate, children }: UserDashboardProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+
+  // Network status for header indicator
+  const { isMainnet, networkName } = useNetworkStatus();
 
   // Calculate menu position when opening
   useEffect(() => {
@@ -72,12 +85,11 @@ export function UserDashboard({ user, onLogout, onNavigate, children }: UserDash
     };
   }, [showUserMenu]);
 
+  /** Get plan badge including creator badge */
   const getPlanBadge = () => {
-    // Special creator badge
     if (user.id === 'creator_admin_001') {
       return <Badge className="bg-gradient-to-r from-purple-600 to-pink-600 text-white">👑 Creator</Badge>;
     }
-    
     switch (user.plan) {
       case 'free':
         return <Badge variant="secondary" className="bg-slate-600 text-white">Free</Badge>;
@@ -90,6 +102,7 @@ export function UserDashboard({ user, onLogout, onNavigate, children }: UserDash
     }
   };
 
+  /** Navigation items */
   const navigationItems = [
     { 
       id: 'dashboard', 
@@ -129,6 +142,8 @@ export function UserDashboard({ user, onLogout, onNavigate, children }: UserDash
     }
   ];
 
+  const networkDotClass = isMainnet ? 'bg-emerald-400' : 'bg-amber-400';
+
   return (
     <div className="min-h-screen bg-transparent text-white dark:text-white light:text-slate-900 transition-colors duration-300">
       {/* Header */}
@@ -148,6 +163,15 @@ export function UserDashboard({ user, onLogout, onNavigate, children }: UserDash
             </div>
             
             <div className="flex items-center gap-3">
+              {/* Small network status badge (desktop) */}
+              <div
+                className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800 border border-slate-700"
+                title={isMainnet ? 'Ethereum Mainnet — live trading' : `${networkName} — test environment`}
+              >
+                <span className={`h-2 w-2 rounded-full ${networkDotClass}`} />
+                <span className="text-xs text-slate-300">{isMainnet ? 'Mainnet' : networkName}</span>
+              </div>
+
               {/* Theme Toggle */}
               <ThemeToggle className="text-white dark:text-slate-300" />
               
@@ -245,6 +269,17 @@ export function UserDashboard({ user, onLogout, onNavigate, children }: UserDash
       <div className="flex">
         {/* Sidebar Navigation */}
         <aside className="w-64 bg-slate-900 border-r border-slate-700 min-h-screen">
+          {/* Compact network dot for mobile (since header badge is hidden on small screens) */}
+          <div className="p-4 sm:hidden">
+            <div
+              className="flex items-center gap-2 px-3 py-2 rounded-full bg-slate-800 border border-slate-700"
+              title={isMainnet ? 'Ethereum Mainnet — live trading' : `${networkName} — test environment`}
+            >
+              <span className={`h-2 w-2 rounded-full ${networkDotClass}`} />
+              <span className="text-xs text-slate-300">{isMainnet ? 'Mainnet' : networkName}</span>
+            </div>
+          </div>
+
           <nav className="p-4 space-y-2">
             {navigationItems.map((item) => (
               <Button
@@ -261,7 +296,7 @@ export function UserDashboard({ user, onLogout, onNavigate, children }: UserDash
                 <item.icon className="h-4 w-4 mr-3" />
                 {item.label}
                 {!item.available && (
-                  <Badge variant="outline" className="ml-auto text-xs border-amber-400 text-amber-400">
+                  <Badge variant="outline" className="ml-auto text-xs border-amber-400 text-amber-400 bg-transparent">
                     Pro
                   </Badge>
                 )}

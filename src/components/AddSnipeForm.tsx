@@ -1,9 +1,10 @@
 /**
  * Form component for adding new snipe configurations
+ * - Now gated to Ethereum Mainnet for submissions with a clear inline helper and "Switch to Mainnet" action.
  */
 
 import React, { useState } from 'react';
-import { Plus, Target } from 'lucide-react';
+import { Plus, Target, AlertTriangle, Info } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -11,13 +12,23 @@ import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 import { HelpTooltip } from './HelpTooltip';
 import { SnipeConfig } from '../types/trading';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
 interface AddSnipeFormProps {
+  /** Handler to add a new snipe config; only used when on Mainnet */
   onAdd: (config: Omit<SnipeConfig, 'id'>) => void;
 }
 
+/**
+ * AddSnipeForm - creates a new snipe target.
+ * Submission is restricted to Mainnet for safety and transparency.
+ */
 export function AddSnipeForm({ onAdd }: AddSnipeFormProps) {
   const [isOpen, setIsOpen] = useState(false);
+
+  // Network gating for production trades
+  const { isMainnet, networkName, switchToMainnet } = useNetworkStatus();
+
   const [formData, setFormData] = useState({
     tokenAddress: '',
     targetPrice: 0.001,
@@ -65,9 +76,20 @@ export function AddSnipeForm({ onAdd }: AddSnipeFormProps) {
     },
   });
 
+  /** Validate hex address */
+  const validateAddress = (address: string) => {
+    return address.startsWith('0x') && address.length === 42;
+  };
+
+  /** Submit handler - gated to Mainnet */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    if (!isMainnet) {
+      // Safety guard; should be disabled by UI, but keep logic safe
+      return;
+    }
+
     if (!formData.tokenAddress || !formData.tokenAddress.startsWith('0x')) {
       alert('Please enter a valid token address');
       return;
@@ -123,10 +145,6 @@ export function AddSnipeForm({ onAdd }: AddSnipeFormProps) {
     setIsOpen(false);
   };
 
-  const validateAddress = (address: string) => {
-    return address.startsWith('0x') && address.length === 42;
-  };
-
   if (!isOpen) {
     return (
       <Card className="bg-gradient-to-r from-blue-900/50 to-purple-900/50 border-blue-500/50 border-dashed border-2">
@@ -146,6 +164,28 @@ export function AddSnipeForm({ onAdd }: AddSnipeFormProps) {
               <Target className="h-4 w-4 mr-2" />
               Create New Target
             </Button>
+
+            {/* Inline hint when not on mainnet */}
+            {!isMainnet && (
+              <div className="mt-3 p-3 bg-amber-900/20 border border-amber-500/40 rounded-lg text-left">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5" />
+                  <div className="text-amber-300 text-xs">
+                    You are connected to {networkName || 'a test network'}. Live sniping is only available on Ethereum Mainnet.
+                    <div className="mt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={switchToMainnet}
+                        className="bg-transparent border-amber-400 text-amber-300 hover:bg-amber-500/10"
+                      >
+                        Switch to Mainnet
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -160,8 +200,34 @@ export function AddSnipeForm({ onAdd }: AddSnipeFormProps) {
           New Snipe Configuration
         </CardTitle>
       </CardHeader>
-      
+
       <CardContent>
+        {/* Network gating helper */}
+        {!isMainnet && (
+          <div className="mb-4 p-3 bg-amber-900/20 border border-amber-500/40 rounded-lg">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5" />
+              <div className="text-amber-200 text-sm">
+                You are on {networkName || 'a test network'}. To create live sniping targets, switch to Ethereum Mainnet.
+                <div className="mt-2 flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={switchToMainnet}
+                    className="bg-transparent border-amber-400 text-amber-300 hover:bg-amber-500/10"
+                  >
+                    Switch to Mainnet
+                  </Button>
+                  <div className="flex items-center gap-1 text-amber-300/90">
+                    <Info className="h-3 w-3" />
+                    <span className="text-xs">Demo/testing is available on the TESTNET tab.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <Label htmlFor="tokenAddress" className="text-slate-300">Token Address *</Label>
@@ -281,6 +347,11 @@ export function AddSnipeForm({ onAdd }: AddSnipeFormProps) {
                 }
               />
               <Label htmlFor="autoSellEnabled" className="text-slate-300">Enable Auto-Sell</Label>
+              <HelpTooltip
+                title="Auto-Sell"
+                content="Enable automatic take-profit/stop-loss logic after purchase."
+                size="sm"
+              />
             </div>
             
             {formData.autoSell.enabled && (
@@ -333,17 +404,18 @@ export function AddSnipeForm({ onAdd }: AddSnipeFormProps) {
           <div className="flex gap-2">
             <Button 
               type="submit" 
-              className="flex-1 bg-green-600 hover:bg-green-700"
-              disabled={!validateAddress(formData.tokenAddress)}
+              className={`flex-1 ${isMainnet ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 cursor-not-allowed opacity-60'}`}
+              disabled={!isMainnet || !validateAddress(formData.tokenAddress)}
+              title={isMainnet ? undefined : 'Switch to Ethereum Mainnet to create live sniping targets'}
             >
               <Plus className="h-4 w-4 mr-2" />
-              Add Snipe Target
+              {isMainnet ? 'Add Snipe Target' : 'Switch to Mainnet to Add'}
             </Button>
             <Button 
               type="button" 
               onClick={() => setIsOpen(false)}
               variant="outline" 
-              className="border-slate-600 text-slate-300"
+              className="bg-transparent border-slate-600 text-slate-300"
             >
               Cancel
             </Button>

@@ -1,5 +1,5 @@
 import { HashRouter, Route, Routes } from 'react-router';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LandingPage } from './components/LandingPage';
 import { AuthModal } from './components/AuthModal';
 import { UserDashboard } from './components/UserDashboard';
@@ -11,6 +11,9 @@ import { TokenTicker } from './components/TokenTicker';
 import { SubscriptionManager } from './components/SubscriptionManager';
 import { TutorialsPage } from './components/TutorialsPage';
 import Home from './pages/Home';
+import { useNetworkStatus } from './hooks/useNetworkStatus';
+import { Toaster, toast } from 'sonner';
+
 type AppState = 'landing' | 'demo' | 'authenticated';
 
 interface User {
@@ -21,6 +24,10 @@ interface User {
   avatar?: string | null;
 }
 
+/**
+ * App - root of the application with routing, theme, background, and global toasts.
+ * - Adds a safety check to invalidate any legacy "creator_admin_001" sessions.
+ */
 export default function App() {
   const [appState, setAppState] = useState<AppState>('landing');
   const [user, setUser] = useState<User | null>(null);
@@ -28,14 +35,49 @@ export default function App() {
   const [authModalTab, setAuthModalTab] = useState<'login' | 'signup'>('login');
   const [currentPage, setCurrentPage] = useState('dashboard');
 
+  // Network status for global notifications
+  const { chainId, isMainnet, networkName } = useNetworkStatus();
+  const lastChainIdRef = useRef<number | null>(null);
+
+  // Toast on network change
+  useEffect(() => {
+    const prev = lastChainIdRef.current;
+    if (chainId === prev) return;
+
+    if (chainId == null) {
+      if (prev != null) {
+        toast('Wallet disconnected', {
+          description: 'No active network detected.',
+        });
+      }
+    } else if (isMainnet) {
+      toast.success('Switched to Ethereum Mainnet', {
+        description: 'Live trading enabled — real funds at risk.',
+      });
+    } else {
+      toast.warning(`Connected to ${networkName}`, {
+        description: 'Test environment — safe practice with test tokens.',
+      });
+    }
+
+    lastChainIdRef.current = chainId;
+  }, [chainId, isMainnet, networkName]);
+
   // Check for stored user session on mount
   useEffect(() => {
     const storedUser = localStorage.getItem('cryptosniper_user');
     if (storedUser) {
       try {
-        const userData = JSON.parse(storedUser);
-        setUser(userData);
-        setAppState('authenticated');
+        const userData = JSON.parse(storedUser) as User;
+
+        // Security: invalidate any legacy creator session that may have been stored previously
+        if (userData?.id === 'creator_admin_001') {
+          localStorage.removeItem('cryptosniper_user');
+          localStorage.removeItem('cryptosniper_remember_me');
+        } else {
+          setUser(userData);
+          setAppState('authenticated');
+        }
       } catch (error) {
         console.error('Error parsing stored user data:', error);
         localStorage.removeItem('cryptosniper_user');
@@ -170,6 +212,8 @@ export default function App() {
 
   return (
     <ThemeProvider>
+      {/* Global Toaster for notifications */}
+      <Toaster position="top-right" richColors />
       <div className="min-h-screen relative">
         <DynamicBackground />
         
