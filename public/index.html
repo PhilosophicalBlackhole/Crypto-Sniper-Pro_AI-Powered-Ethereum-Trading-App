@@ -1,0 +1,32 @@
+<!--
+  index.html
+  - Provides root container and injects runtime environment into window.__ENV__.
+  - This allows the app to use Supabase Auth without modifying the bundler config.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, user-scalable=no"
+    />
+    <title>CryptoSniper Pro</title>
+    <meta name="theme-color" content="#0b1221" />
+    <!-- Runtime env injection: Supabase (managed auth) -->
+    <script>
+      window.__ENV__ = Object.assign({}, window.__ENV__ || {}, {
+        REACT_APP_SUPABASE_URL: "https://pritacouhsqmrukolbbo.supabase.co",
+        REACT_APP_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByaXRhY291aHNxbXJ1a29sYmJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ5NDAxMTcsImV4cCI6MjA3MDUxNjExN30.ibkv6KaQkpIwxJojIZTKKdiTllfyaKZ-edOUWLr6Quk"
+      });
+    </script>
+    <style>
+      html, body, #root { height: 100%; }
+      body { margin: 0; background: #070b14; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- The bundle is injected by the build system -->
+  </body>
+</html>
