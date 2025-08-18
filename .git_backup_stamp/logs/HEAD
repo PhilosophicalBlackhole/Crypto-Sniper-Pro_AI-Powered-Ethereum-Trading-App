@@ -1,0 +1,22 @@
+0000000000000000000000000000000000000000 e7500f7896341c0207de020e703c0f0ef9b1ee50 Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1754185045 -0500	commit (initial): Add .gitattributes.
+e7500f7896341c0207de020e703c0f0ef9b1ee50 e540342aadaf36060415f1ba3696f950c1757065 Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1754632161 -0500	commit: fix: add typescript as devDependency for Netlify build
+e540342aadaf36060415f1ba3696f950c1757065 7220e5f6ab368034b8bf4e2a8afe4ba8288274d0 Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1754642470 -0500	commit: long
+7220e5f6ab368034b8bf4e2a8afe4ba8288274d0 58e67bd173767594fb37b6bb62497131a9481d90 Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1754645287 -0500	commit: aa
+58e67bd173767594fb37b6bb62497131a9481d90 6bd504faca85c146d3613a29d6c4ba22d4be66cb Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1754645864 -0500	commit: update package.json
+6bd504faca85c146d3613a29d6c4ba22d4be66cb 9dd22b1d9eec799d55f1d8982ac06e3dee89617b Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1754679205 -0500	commit: install missing typescript
+9dd22b1d9eec799d55f1d8982ac06e3dee89617b 86b11b8c03528d119af9ee0e1a960b687f26bd18 Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1754679352 -0500	commit: push package.json
+86b11b8c03528d119af9ee0e1a960b687f26bd18 cd943db6850d5ab86e53c2997875a9999e4717da Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1754682297 -0500	commit: restructure
+cd943db6850d5ab86e53c2997875a9999e4717da e0efdc412895a666f9557754871322ef13e49a51 Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1754682747 -0500	commit: netlify.toml to /src
+e0efdc412895a666f9557754871322ef13e49a51 35a7d6e885d457a6aebc3c522c80f1b7076a5a97 Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1754771006 -0500	commit: recommit and reorganize
+35a7d6e885d457a6aebc3c522c80f1b7076a5a97 360e79613370860387d04143882d9086c3c3290c Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1754771076 -0500	commit: locate 'vs' files
+360e79613370860387d04143882d9086c3c3290c 0fa4a9f0a3512067c55e37a3280917c2fe28235e Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1754781039 -0500	commit: updates (connect wallet button) package.json
+0fa4a9f0a3512067c55e37a3280917c2fe28235e 9ee0199748932b07db0172145c267dcbb75324a7 Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1754826855 -0500	commit: update package.json
+9ee0199748932b07db0172145c267dcbb75324a7 974c567b2e85ddd276aa99c8cade69bb1af83ccb Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1754830260 -0500	commit: nn
+974c567b2e85ddd276aa99c8cade69bb1af83ccb 9c55c2fd88b7f7d433f0a8cb7f4167c613ed1d0f Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1754948743 -0500	commit: Supabase
+9c55c2fd88b7f7d433f0a8cb7f4167c613ed1d0f 1255dc1fb8ff83d1d3a4c0f00db404f79660005c Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1754951545 -0500	commit: major rehaul
+1255dc1fb8ff83d1d3a4c0f00db404f79660005c 45a8e10370a10fb35431a0001a97b6048f445c7e Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1755015097 -0500	commit: package.json delete
+45a8e10370a10fb35431a0001a97b6048f445c7e 3bcb7bc8c5bda57458ccca21480b4677c0674563 Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1755015464 -0500	commit: remove duplicates
+3bcb7bc8c5bda57458ccca21480b4677c0674563 89af53535b3cae5b7c99a032b05b1873dab42550 Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1755030340 -0500	commit: Major Realign and Overhaul
+89af53535b3cae5b7c99a032b05b1873dab42550 ff3e37794566b813022b167fadfb98b357d251a6 Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1755035494 -0500	commit: ditto
+ff3e37794566b813022b167fadfb98b357d251a6 cfb446858874b437568f542152d1eef951e32034 Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1755152734 -0500	commit: node modules rewrite
+cfb446858874b437568f542152d1eef951e32034 7c0496afeccabcea611d6a65d4e3bd10f836e644 Phil Black <154659376+PhilosophicalBlackhole@users.noreply.github.com> 1755355577 -0500	commit: Create responsive card layout
