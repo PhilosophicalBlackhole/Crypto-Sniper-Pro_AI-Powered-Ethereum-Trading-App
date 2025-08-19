@@ -1,9 +1,9 @@
 [build]
-command = "node scripts/build.mjs --production"
-publish = "dist"
+  command = "npm install --legacy-peer-deps && npm run build"
+  publish = "dist"
 
 [build.environment]
-  NODE_VERSION = "latest"
+  NODE_VERSION = "18"
   NPM_FLAGS = "--legacy-peer-deps"
 
 [[redirects]]
