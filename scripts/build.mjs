@@ -79,16 +79,16 @@ fs.writeFileSync('dist/index.html', htmlContent);
 if (isDev) {
   console.log('🚀 Starting CryptoSniper Pro development server...');
   
-  // Use React's built-in development server
-  const reactProcess = spawn('npx', ['react-scripts', 'start'], {
-    stdio: 'inherit',
-    shell: true,
-    env: {
-      ...process.env,
-      PORT: '3000',
-      BROWSER: 'none'
-    }
-  });
+ // Use React's built-in development server
+ // const reactProcess = spawn('npx', ['react-scripts', 'start'], {
+ //   stdio: 'inherit',
+ //   shell: true,
+ //   env: {
+ //     ...process.env,
+ //     PORT: '3000',
+ //     BROWSER: 'none'
+ //   }
+ // });
 
   reactProcess.on('close', (code) => {
     console.log(`React development server exited with code ${code}`);
