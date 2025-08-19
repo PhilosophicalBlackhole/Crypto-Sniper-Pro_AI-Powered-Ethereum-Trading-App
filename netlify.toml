@@ -1,6 +1,6 @@
 [build]
 command = "node scripts/build.mjs --production"
-publish = "dist""
+publish = "dist"
 
 [build.environment]
   NODE_VERSION = "18"
