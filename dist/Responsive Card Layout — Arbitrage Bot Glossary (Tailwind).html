@@ -1,0 +1,365 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Arbitrage Bot Glossary — Card Preview</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Small additional tweaks for card heights and truncation */
+    .card-title { @apply text-lg font-semibold tracking-tight; }
+    .card-sub { @apply text-sm text-slate-500; }
+    .card-body { @apply text-sm text-slate-700; }
+    .card-link { @apply text-sm text-indigo-600 hover:text-indigo-800; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased">
+  <div class="max-w-7xl mx-auto p-6">
+    <header class="mb-6">
+      <h1 class="text-2xl font-bold">Arbitrage Bot Glossary — Card Preview</h1>
+      <p class="mt-1 text-slate-600">Compact tutorial cards for key terms used by the trustless arbitrage smart contract.</p>
+    </header>
+
+    <!-- Controls / Filters (non-functional mockup) -->
+    <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <label class="text-sm text-slate-600">View:</label>
+        <div class="inline-flex bg-white border rounded-md shadow-sm">
+          <button class="px-3 py-1 text-sm text-slate-700">All</button>
+          <button class="px-3 py-1 text-sm text-slate-700">Core</button>
+          <button class="px-3 py-1 text-sm text-slate-700">Safety</button>
+        </div>
+      </div>
+      <div class="text-sm text-slate-500">Preview only — UI actions are mockups</div>
+    </div>
+
+    <!-- Grid of cards -->
+    <section class="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+      <!-- Card: Flash loan -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">Flash loan</div>
+            <div class="card-sub mt-1">Uncollateralized loan repaid within one transaction</div>
+          </div>
+          <div class="text-xs text-slate-400">Core</div>
+        </div>
+        <p class="card-body mt-3 line-clamp-3">Borrow funds (e.g., via Aave) to fund an arbitrage, perform swaps, and repay the loan plus premium within the same transaction to keep net profit.</p>
+        <a class="card-link inline-block mt-4" href="https://docs.aave.com/faq/flash-loans" target="_blank" rel="noopener">Learn more ↗</a>
+      </article>
+
+      <!-- Card: Two-leg arbitrage -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">Two‑leg arbitrage</div>
+            <div class="card-sub mt-1">Capture spreads using two swaps across DEXes</div>
+          </div>
+          <div class="text-xs text-slate-400">Core</div>
+        </div>
+        <p class="card-body mt-3">Swap A→B on DEX 1, then B→A on DEX 2 (e.g., WETH↔USDC) to pocket the price difference after fees.</p>
+        <a class="card-link inline-block mt-4" href="https://www.investopedia.com/terms/a/arbitrage.asp" target="_blank" rel="noopener">Learn more ↗</a>
+      </article>
+
+      <!-- Card: DEX -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">DEX (Uniswap V2/V3, Sushiswap, Balancer)</div>
+            <div class="card-sub mt-1">On‑chain AMMs and liquidity pools</div>
+          </div>
+          <div class="text-xs text-slate-400">Core</div>
+        </div>
+        <p class="card-body mt-3">Choose the DEX with the best price/gas profile; V3 offers concentrated liquidity while Balancer supports multi-token pools and custom weights.</p>
+        <a class="card-link inline-block mt-4" href="https://uniswap.org/docs/v3/" target="_blank" rel="noopener">Uniswap V3 ↗</a>
+      </article>
+
+      <!-- Card: WETH / ETH wrapping -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">WETH / ETH wrapping</div>
+            <div class="card-sub mt-1">ERC‑20 wrapper for native ETH</div>
+          </div>
+          <div class="text-xs text-slate-400">Utility</div>
+        </div>
+        <p class="card-body mt-3">Wrap ETH to WETH so it can be used in ERC‑20 swap paths and approved by routers or contracts; unwrap to send native ETH as profit.</p>
+        <a class="card-link inline-block mt-4" href="https://weth.io/" target="_blank" rel="noopener">Learn more ↗</a>
+      </article>
+
+      <!-- Card: Route profit estimation -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">Route profit estimation</div>
+            <div class="card-sub mt-1">Predict expected output & net profit</div>
+          </div>
+          <div class="text-xs text-slate-400">Estimation</div>
+        </div>
+        <p class="card-body mt-3">Use on‑chain calls for V2-like routers and approximations for V3/Balancer to estimate outputs, fees, slippage, and net profit for candidate routes.</p>
+        <a class="card-link inline-block mt-4" href="https://docs.uniswap.org/protocol/V2/concepts/core-concepts" target="_blank" rel="noopener">Learn more ↗</a>
+      </article>
+
+      <!-- Card: Gas estimation -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">Gas estimation (per-route)</div>
+            <div class="card-sub mt-1">Estimate gas units & ETH cost</div>
+          </div>
+          <div class="text-xs text-slate-400">Estimation</div>
+        </div>
+        <p class="card-body mt-3">Estimate gas per DEX route—Uniswap V3 and Balancer often cost more gas; include gas in profit calculations to avoid loss-making routes.</p>
+        <a class="card-link inline-block mt-4" href="https://ethereum.org/en/developers/docs/gas/" target="_blank" rel="noopener">Learn more ↗</a>
+      </article>
+
+      <!-- Card: Slippage -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">Slippage (max slippage)</div>
+            <div class="card-sub mt-1">Allowed % deviation in execution price</div>
+          </div>
+          <div class="text-xs text-slate-400">Safety</div>
+        </div>
+        <p class="card-body mt-3">Reject routes exceeding MAX_SLIPPAGE (e.g., 10%) to avoid executing trades that deviate too far from expected prices.</p>
+        <a class="card-link inline-block mt-4" href="https://docs.uniswap.org/protocol/concepts/slippage" target="_blank" rel="noopener">Learn more ↗</a>
+      </article>
+
+      <!-- Card: Trade size limit -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">Trade size limit (MAX_TRADE_AMOUNT)</div>
+            <div class="card-sub mt-1">Immutable cap on attempted trade amount</div>
+          </div>
+          <div class="text-xs text-slate-400">Safety</div>
+        </div>
+        <p class="card-body mt-3">Limit trade size (e.g., 100 ETH) to prevent market-moving swaps that could destroy profitability.</p>
+        <a class="card-link inline-block mt-4" href="https://consensys.github.io/smart-contract-best-practices/recommendations/" target="_blank" rel="noopener">Learn more ↗</a>
+      </article>
+
+      <!-- Card: Minimum profit threshold -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">Minimum profit threshold</div>
+            <div class="card-sub mt-1">Minimum net profit to execute</div>
+          </div>
+          <div class="text-xs text-slate-400">Economics</div>
+        </div>
+        <p class="card-body mt-3">Require net profit above a threshold (e.g., 0.001 ETH) after gas and fees before launching a flash loan-backed arbitrage.</p>
+        <a class="card-link inline-block mt-4" href="https://research.paradigm.xyz/mev" target="_blank" rel="noopener">Learn more ↗</a>
+      </article>
+
+      <!-- Card: Per-user rate limiting -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">Per‑user rate limiting</div>
+            <div class="card-sub mt-1">Cooldowns and daily caps per user</div>
+          </div>
+          <div class="text-xs text-slate-400">Safety</div>
+        </div>
+        <p class="card-body mt-3">Enforce cooldown periods and daily caps to prevent abuse and reduce systemic risk from one user monopolizing opportunities.</p>
+        <a class="card-link inline-block mt-4" href="https://blog.openzeppelin.com/rate-limiting-in-solidity/" target="_blank" rel="noopener">Learn more ↗</a>
+      </article>
+
+      <!-- Card: Aave flash loan callback -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">Aave flash loan callback</div>
+            <div class="card-sub mt-1">executeOperation where you run logic & repay</div>
+          </div>
+          <div class="text-xs text-slate-400">Core</div>
+        </div>
+        <p class="card-body mt-3">Execute arbitrage in the callback and ensure the borrowed principal + premium is repaid before the callback ends to avoid revert.</p>
+        <a class="card-link inline-block mt-4" href="https://docs.aave.com/developers/guides/flash-loans" target="_blank" rel="noopener">Learn more ↗</a>
+      </article>
+
+      <!-- Card: ERC-20 approvals -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">ERC‑20 approvals & allowances</div>
+            <div class="card-sub mt-1">approve / transferFrom permission model</div>
+          </div>
+          <div class="text-xs text-slate-400">Utility</div>
+        </div>
+        <p class="card-body mt-3">Grant allowances so routers or the arbitrage contract can pull tokens for swaps and loan repayments.</p>
+        <a class="card-link inline-block mt-4" href="https://eips.ethereum.org/EIPS/eip-20" target="_blank" rel="noopener">Learn more ↗</a>
+      </article>
+
+      <!-- Card: Repayment + premium -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">Repayment + premium</div>
+            <div class="card-sub mt-1">Flash loan must be returned with protocol fee</div>
+          </div>
+          <div class="text-xs text-slate-400">Economics</div>
+        </div>
+        <p class="card-body mt-3">Ensure arbitrage covers the borrowed amount plus premium; otherwise the whole transaction will revert and yield no profit.</p>
+        <a class="card-link inline-block mt-4" href="https://docs.aave.com/faq/flash-loans" target="_blank" rel="noopener">Learn more ↗</a>
+      </article>
+
+      <!-- Card: Events & stats -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">Event emission & on‑chain stats</div>
+            <div class="card-sub mt-1">Logs for UI & analytics</div>
+          </div>
+          <div class="text-xs text-slate-400">Observability</div>
+        </div>
+        <p class="card-body mt-3">Emit OpportunityFound and ArbitrageExecuted events so front‑ends can index and display opportunities and results to users.</p>
+        <a class="card-link inline-block mt-4" href="https://docs.soliditylang.org/en/latest/contracts.html#events" target="_blank" rel="noopener">Learn more ↗</a>
+      </article>
+
+      <!-- Card: Whitelisting -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">Token / pool whitelisting</div>
+            <div class="card-sub mt-1">Restrict to approved tokens & pools</div>
+          </div>
+          <div class="text-xs text-slate-400">Safety</div>
+        </div>
+        <p class="card-body mt-3">Limit contract interactions to preapproved tokens (WETH, USDC, USDT, DAI, WBTC) and validated Balancer pool IDs to reduce risk.</p>
+        <a class="card-link inline-block mt-4" href="https://docs.openzeppelin.com/contracts/4.x/access-control" target="_blank" rel="noopener">Learn more ↗</a>
+      </article>
+
+      <!-- Card: Uniswap V3 single-hop -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">Uniswap V3 exact‑input single‑hop</div>
+            <div class="card-sub mt-1">Exact input swap in a single V3 pool</div>
+          </div>
+          <div class="text-xs text-slate-400">DEX</div>
+        </div>
+        <p class="card-body mt-3">Use single‑hop exact‑input when trading a known input amount across one concentrated‑liquidity pool for predictable output estimates.</p>
+        <a class="card-link inline-block mt-4" href="https://docs.uniswap.org/protocol/V3/guides/swaps" target="_blank" rel="noopener">Learn more ↗</a>
+      </article>
+
+      <!-- Card: Balancer single swap -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">Balancer single swap / Vault</div>
+            <div class="card-sub mt-1">Vault-mediated swaps in Balancer pools</div>
+          </div>
+          <div class="text-xs text-slate-400">DEX</div>
+        </div>
+        <p class="card-body mt-3">Execute single-token-for-token swaps through the Balancer Vault when pool weights and fees make it favorable.</p>
+        <a class="card-link inline-block mt-4" href="https://docs.balancer.fi/developers/guides/smart-contracts/vault" target="_blank" rel="noopener">Learn more ↗</a>
+      </article>
+
+      <!-- Card: Immutable safety constants -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">Immutable safety constants</div>
+            <div class="card-sub mt-1">Immutable limits set at deployment</div>
+          </div>
+          <div class="text-xs text-slate-400">Safety</div>
+        </div>
+        <p class="card-body mt-3">Use immutable variables (MAX_SLIPPAGE, MAX_TRADE_AMOUNT) to enforce security constraints that cannot be altered at runtime.</p>
+        <a class="card-link inline-block mt-4" href="https://docs.soliditylang.org/en/latest/contracts.html#immutable-variables" target="_blank" rel="noopener">Learn more ↗</a>
+      </article>
+
+      <!-- Card: WETH withdrawal -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">WETH withdrawal (unwrap)</div>
+            <div class="card-sub mt-1">Convert WETH back to native ETH</div>
+          </div>
+          <div class="text-xs text-slate-400">Utility</div>
+        </div>
+        <p class="card-body mt-3">After arbitrage, unwrap WETH to ETH and transfer native ETH to the initiating user as profit if desired.</p>
+        <a class="card-link inline-block mt-4" href="https://weth.io/" target="_blank" rel="noopener">Learn more ↗</a>
+      </article>
+
+      <!-- Card: Opportunity scanning -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">Opportunity scanning</div>
+            <div class="card-sub mt-1">Sample multiple trade sizes to find best route</div>
+          </div>
+          <div class="text-xs text-slate-400">Search</div>
+        </div>
+        <p class="card-body mt-3">Probe trade sizes (10%, 25%, 50%) across routes using StartNative to find the best OpportunityData while limiting price impact.</p>
+        <a class="card-link inline-block mt-4" href="https://ethresear.ch/t/mev-searching-strategies" target="_blank" rel="noopener">Learn more ↗</a>
+      </article>
+
+      <!-- Card: MEV considerations -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">MEV considerations</div>
+            <div class="card-sub mt-1">Front‑running, sandwiching, and extraction risks</div>
+          </div>
+          <div class="text-xs text-slate-400">Risk</div>
+        </div>
+        <p class="card-body mt-3">Protect transactions from mempool exposure (private relays, bundles) to reduce front‑running and sandwich attacks that reduce arbitrage profit.</p>
+        <a class="card-link inline-block mt-4" href="https://research.paradigm.xyz/mev" target="_blank" rel="noopener">Learn more ↗</a>
+      </article>
+
+      <!-- Card: Reentrancy & repay-safety -->
+      <article class="bg-white border border-slate-200 rounded-lg p-4 shadow-sm hover:shadow-md transition">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <div class="card-title">Reentrancy & repay‑safety checks</div>
+            <div class="card-sub mt-1">Guards and checks to prevent exploits</div>
+          </div>
+          <div class="text-xs text-slate-400">Security</div>
+        </div>
+        <p class="card-body mt-3">Use reentrancy guards and checks-effects-interactions patterns and verify repayment amounts before transferring profits to avoid vulnerabilities.</p>
+        <a class="card-link inline-block mt-4" href="https://consensys.github.io/smart-contract-best-practices/attacks/reentrancy/" target="_blank" rel="noopener">Learn more ↗</a>
+      </article>
+    </section>
+
+    <footer class="mt-8 text-sm text-slate-500">
+      Tip: This is a responsive mockup using Tailwind via CDN. For production use, integrate styles into your app and replace static links with i18n/localized resources if needed.
+    </footer>
+  </div>
+
+  <!-- Optional: small script to demonstrate accessible focus states (non-essential) -->
+  <script>
+    // Add focus styles for keyboard navigation demo
+    document.querySelectorAll('article').forEach(card => {
+      card.setAttribute('tabindex', '0');
+      card.addEventListener('focus', () => card.classList.add('ring-2','ring-indigo-200'));
+      card.addEventListener('blur', () => card.classList.remove('ring-2','ring-indigo-200'));
+    });
+  </script>
+<script>window.parent.postMessage({ action: "ready" }, "*"); 
+ 
+window.console = new Proxy(console, {
+  get(target, prop) {
+    if (['log', 'warn', 'error'].includes(prop)) {
+      return new Proxy(target[prop], {
+        apply(fn, thisArg, args) {
+          fn.apply(thisArg, args);
+          window.parent.postMessage({ action: 'console', 
+            type: prop, 
+            args: args.map((arg) => {
+              try {
+                return JSON.stringify(arg).replace(/^["']|["']$/g, '');
+              } catch (e) {
+                return arg;
+              }
+            }) 
+          }, '*');
+        }
+      });
+    }
+    return target[prop];
+  }
+});
+</script></body>
+</html>
