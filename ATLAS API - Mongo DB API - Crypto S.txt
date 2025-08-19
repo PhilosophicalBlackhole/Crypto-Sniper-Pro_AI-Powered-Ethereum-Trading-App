@@ -1,7 +1,0 @@
-ATLAS API - Mongo DB API - Crypto Sniper Project Key Information
-
-Public Key
-wqllvlka
-
-Private Key
-d242b631-84e0-4210-be5c-5f60559340d5
