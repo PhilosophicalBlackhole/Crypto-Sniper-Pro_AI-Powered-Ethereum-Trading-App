@@ -3,7 +3,7 @@ command = "node scripts/build.mjs --production"
 publish = "dist"
 
 [build.environment]
-  NODE_VERSION = "18"
+  NODE_VERSION = "latest"
   NPM_FLAGS = "--legacy-peer-deps"
 
 [[redirects]]
