@@ -1,5 +1,7 @@
 /**
  * Individual snipe configuration card component
+ * - Enforces RULE: Sell targets must be above buy target (in our model: profit/partial targets > 0%).
+ * - Shows toast feedback on failed Start attempts instead of silently disabling.
  */
 
 import React, { useState } from 'react';
@@ -15,6 +17,7 @@ import { AdvancedSettings } from './AdvancedSettings';
 import { SavedConfigsManager } from './SavedConfigsManager';
 import { SnipeConfig, MarketData } from '../types/trading';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { toast } from 'sonner';
 
 interface SnipeConfigCardProps {
   /** Snipe config this card controls */
@@ -28,8 +31,30 @@ interface SnipeConfigCardProps {
 }
 
 /**
+ * Check SELL > BUY rule for a given config (percentage-based model)
+ * - Auto-sell profitTarget must be > 0% when enabled.
+ * - Partial selling priceTargets must all be > 0% when enabled.
+ */
+function checkSellTargetsRule(cfg: SnipeConfig): { ok: boolean; msg?: string } {
+  const auto = cfg?.autoSell;
+  if (!auto?.enabled) return { ok: true };
+  if (typeof auto.profitTarget === 'number' && auto.profitTarget <= 0) {
+    return { ok: false, msg: 'Profit target must be greater than 0% so sell price is above the buy price.' };
+  }
+  if (auto.partialSelling?.enabled) {
+    const invalid = (auto.partialSelling.priceTargets || []).some((p) => typeof p === 'number' && p <= 0);
+    if (invalid) {
+      return { ok: false, msg: 'All partial sell price targets must be greater than 0%.' };
+    }
+  }
+  return { ok: true };
+}
+
+/**
  * SnipeConfigCard - shows and edits one snipe configuration.
  * - Gated actions: Save and Start require Ethereum Mainnet. Pause is always allowed.
+ * - Enforces SELL > BUY rule at enable/start time and during edit mode.
+ * - Shows global toasts on invalid Start attempts for better UX.
  */
 export function SnipeConfigCard({ config, marketData, onUpdate, onRemove }: SnipeConfigCardProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -41,14 +66,50 @@ export function SnipeConfigCard({ config, marketData, onUpdate, onRemove }: Snip
 
   /** Save current edits back to parent */
   const handleSave = () => {
+    const sellRule = checkSellTargetsRule(editConfig);
+    if (!sellRule.ok) {
+      toast.error(sellRule.msg || 'Sell targets must be greater than the buy target.');
+      return;
+    }
+    if (!isMainnet) {
+      toast.warning('Switch to Ethereum Mainnet to save live sniping changes.');
+      return;
+    }
     onUpdate(config.id, editConfig);
     setIsEditing(false);
+    toast.success('Configuration saved');
   };
 
   /** Cancel editing, restore original */
   const handleCancel = () => {
     setEditConfig(config);
     setIsEditing(false);
+  };
+
+  /** Handle toggle button click with gating and toast feedback */
+  const handleToggleClick = () => {
+    if (config.enabled) {
+      // Pause is always allowed
+      onUpdate(config.id, { enabled: false });
+      toast('Sniping paused');
+      return;
+    }
+    // Attempt to start
+    if (!isMainnet) {
+      toast.warning(`You are on ${networkName || 'a test network'}. Switch to Ethereum Mainnet to start.`);
+      return;
+    }
+    const sellRule = checkSellTargetsRule(config);
+    if (!sellRule.ok) {
+      toast.error(sellRule.msg || 'Fix your sell targets before starting.');
+      return;
+    }
+    if (!isConfigurationValid()) {
+      toast.error(getValidationMessage() || 'Please fix your configuration first.');
+      return;
+    }
+    onUpdate(config.id, { enabled: true });
+    toast.success('Sniping started');
   };
 
   /** Format price for display */
@@ -65,6 +126,7 @@ export function SnipeConfigCard({ config, marketData, onUpdate, onRemove }: Snip
 
   // Validation for safe trading
   const isConfigurationValid = () => {
+    const sellRule = checkSellTargetsRule(config);
     return (
       config.targetPrice > 0 &&
       config.maxPrice > 0 &&
@@ -73,12 +135,14 @@ export function SnipeConfigCard({ config, marketData, onUpdate, onRemove }: Snip
       config.maxPrice >= config.targetPrice &&
       config.amount <= 10 && // Reasonable max amount
       config.slippage <= 50 && // Reasonable max slippage
+      sellRule.ok &&
       userConfirmed
     );
   };
 
   /** Get UX message for validation failure */
   const getValidationMessage = () => {
+    const sellRule = checkSellTargetsRule(config);
     if (config.targetPrice <= 0) return 'Please set a target price';
     if (config.maxPrice <= 0) return 'Please set a maximum price';
     if (config.amount <= 0) return 'Please set an amount to trade';
@@ -86,19 +150,19 @@ export function SnipeConfigCard({ config, marketData, onUpdate, onRemove }: Snip
     if (config.maxPrice < config.targetPrice) return 'Max price must be >= target price';
     if (config.amount > 10) return 'Amount seems too high (>10 ETH)';
     if (config.slippage > 50) return 'Slippage seems too high (>50%)';
+    if (!sellRule.ok) return sellRule.msg || 'Sell targets must be greater than the buy target.';
     if (!userConfirmed) return 'Please confirm your settings below';
     return '';
   };
 
-  // Toggle button gating:
-  // - If already enabled, allow Pause even on testnet (safety).
-  // - If currently disabled, require Mainnet + valid config to Start.
-  const canToggle = config.enabled ? true : (isMainnet && isConfigurationValid());
+  const sellRuleForEdit = checkSellTargetsRule(editConfig);
   const startButtonLabel = !isMainnet
     ? 'Switch to Mainnet to Start'
     : isConfigurationValid()
       ? 'Start Sniping'
-      : 'Configure Settings First';
+      : !sellRuleForEdit.ok
+        ? 'Fix Sell Targets First'
+        : 'Configure Settings First';
 
   return (
     <Card className="bg-slate-900 border-slate-800">
@@ -192,6 +256,13 @@ export function SnipeConfigCard({ config, marketData, onUpdate, onRemove }: Snip
               </div>
             )}
 
+            {/* SELL > BUY rule warning during edit (even before mainnet) */}
+            {!sellRuleForEdit.ok && (
+              <div className="p-3 bg-red-900/25 border border-red-500/50 rounded-lg text-red-200 text-sm">
+                {sellRuleForEdit.msg || 'Sell targets must be greater than the buy target.'}
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <div className="flex items-center gap-1 mb-2">
@@ -282,9 +353,15 @@ export function SnipeConfigCard({ config, marketData, onUpdate, onRemove }: Snip
             <div className="flex gap-2">
               <Button
                 onClick={handleSave}
-                disabled={!isMainnet}
-                title={!isMainnet ? 'Switch to Ethereum Mainnet to save live sniping changes' : undefined}
-                className={`bg-green-600 hover:bg-green-700 ${!isMainnet ? 'opacity-60 cursor-not-allowed' : ''}`}
+                disabled={!isMainnet || !sellRuleForEdit.ok}
+                title={
+                  !isMainnet
+                    ? 'Switch to Ethereum Mainnet to save live sniping changes'
+                    : !sellRuleForEdit.ok
+                    ? (sellRuleForEdit.msg || 'Sell targets must be greater than the buy target.')
+                    : undefined
+                }
+                className={`bg-green-600 hover:bg-green-700 ${!isMainnet || !sellRuleForEdit.ok ? 'opacity-60 cursor-not-allowed' : ''}`}
               >
                 Save Changes
               </Button>
@@ -433,15 +510,15 @@ export function SnipeConfigCard({ config, marketData, onUpdate, onRemove }: Snip
               )}
 
               <Button
-                onClick={() => onUpdate(config.id, { enabled: !config.enabled })}
-                disabled={!canToggle}
+                onClick={handleToggleClick}
                 className={`w-full ${
                   config.enabled
                     ? 'bg-red-600 hover:bg-red-700'
-                    : isMainnet && isConfigurationValid()
+                    : isMainnet
                       ? 'bg-green-600 hover:bg-green-700'
                       : 'bg-gray-600'
-                } ${!canToggle ? 'opacity-60 cursor-not-allowed' : ''}`}
+                } ${!config.enabled && !isMainnet ? 'opacity-60 cursor-not-allowed' : ''}`}
+                aria-disabled={!config.enabled && (!isMainnet || !userConfirmed)}
               >
                 {config.enabled ? (
                   <>

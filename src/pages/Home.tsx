@@ -25,6 +25,7 @@ import NetworkStatusBar from '../components/NetworkStatusBar';
 import { AlertTriangle, TrendingUp } from 'lucide-react';
 import { QuickGlance } from '../components/QuickGlance';
 import PerformanceWidget from '../components/PerformanceWidget';
+import { MarketChart } from '../components/MarketChart';
 
 interface HomeProps {
   /** Optional authenticated user id (used when logged in) */
@@ -141,9 +142,11 @@ export default function Home({ userId }: HomeProps) {
                 />
               </div>
 
-              {/* Live market data */}
-              <div>
+              {/* Live market data + Price Chart with P&L strip */}
+              <div className="space-y-6">
                 <LiveMarketData />
+                {/* Wire P&L in ETH; MarketChart will derive USD automatically for Ethereum */}
+                <MarketChart pnlEth={botStatus.totalProfit} />
               </div>
             </div>
 
@@ -236,8 +239,8 @@ export default function Home({ userId }: HomeProps) {
                 />
               </div>
 
-              {/* Market Overview CTA only (no list duplication) */}
-              <div>
+              {/* Market Overview CTA + Price Chart with P&L */}
+              <div className="space-y-6">
                 <Card className="bg-slate-900/20 backdrop-blur-sm border-slate-700/20">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-white">
@@ -260,6 +263,9 @@ export default function Home({ userId }: HomeProps) {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Wire P&L in ETH; MarketChart will derive USD automatically for Ethereum */}
+                <MarketChart pnlEth={botStatus.totalProfit} />
               </div>
             </div>
 

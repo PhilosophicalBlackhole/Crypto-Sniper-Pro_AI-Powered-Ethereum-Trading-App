@@ -1,4 +1,4 @@
-import { HashRouter, Route, Routes } from 'react-router';
+import { HashRouter, Route, Routes } from 'react-router-dom';
 import React, { useState, useEffect, useRef } from 'react';
 import { LandingPage } from './components/LandingPage';
 import { AuthModal } from './components/AuthModal';

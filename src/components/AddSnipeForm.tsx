@@ -1,6 +1,8 @@
 /**
  * Form component for adding new snipe configurations
  * - Now gated to Ethereum Mainnet for submissions with a clear inline helper and "Switch to Mainnet" action.
+ * - Enforces RULE: Sell targets (Auto-Sell profit targets and partial price targets) must be strictly greater than buy target.
+ *   In our percentage-based model, this means all sell thresholds must be > 0%.
  */
 
 import React, { useState } from 'react';
@@ -20,8 +22,29 @@ interface AddSnipeFormProps {
 }
 
 /**
+ * Validate sell targets given the current form data
+ * - profitTarget must be > 0% when Auto-Sell is enabled
+ * - partial priceTargets (if enabled) must all be > 0%
+ */
+function validateSellTargets(formData: Omit<SnipeConfig, 'id'>): { ok: boolean; msg?: string } {
+  const auto = formData.autoSell;
+  if (!auto?.enabled) return { ok: true };
+  if (typeof auto.profitTarget === 'number' && auto.profitTarget <= 0) {
+    return { ok: false, msg: 'Profit target must be greater than 0% so sell price is above the buy price.' };
+  }
+  if (auto.partialSelling?.enabled) {
+    const invalid = (auto.partialSelling.priceTargets || []).some((p) => typeof p === 'number' && p <= 0);
+    if (invalid) {
+      return { ok: false, msg: 'All partial sell price targets must be greater than 0%.' };
+    }
+  }
+  return { ok: true };
+}
+
+/**
  * AddSnipeForm - creates a new snipe target.
  * Submission is restricted to Mainnet for safety and transparency.
+ * Enforces SELL > BUY rule via percentage validations.
  */
 export function AddSnipeForm({ onAdd }: AddSnipeFormProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -81,12 +104,12 @@ export function AddSnipeForm({ onAdd }: AddSnipeFormProps) {
     return address.startsWith('0x') && address.length === 42;
   };
 
-  /** Submit handler - gated to Mainnet */
+  /** Submit handler - gated to Mainnet and enforces SELL > BUY rule */
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!isMainnet) {
-      // Safety guard; should be disabled by UI, but keep logic safe
+      // Safety guard; UI already disables, but keep logic safe
       return;
     }
 
@@ -95,7 +118,13 @@ export function AddSnipeForm({ onAdd }: AddSnipeFormProps) {
       return;
     }
 
-    onAdd(formData);
+    const sellRule = validateSellTargets(formData as any);
+    if (!sellRule.ok) {
+      alert(sellRule.msg || 'Sell targets must be greater than the buy target.');
+      return;
+    }
+
+    onAdd(formData as any);
     setFormData({
       tokenAddress: '',
       targetPrice: 0.001,
@@ -141,7 +170,7 @@ export function AddSnipeForm({ onAdd }: AddSnipeFormProps) {
         nonceManagement: 'auto' as const,
         priority: 5,
       },
-    });
+    } as any);
     setIsOpen(false);
   };
 
@@ -191,6 +220,9 @@ export function AddSnipeForm({ onAdd }: AddSnipeFormProps) {
       </Card>
     );
   }
+
+  const autoEnabled = formData.autoSell.enabled;
+  const profitTargetInvalid = autoEnabled && (typeof formData.autoSell.profitTarget !== 'number' || formData.autoSell.profitTarget <= 0);
 
   return (
     <Card className="bg-slate-900/30 backdrop-blur-sm border-slate-700/30">
@@ -361,7 +393,8 @@ export function AddSnipeForm({ onAdd }: AddSnipeFormProps) {
                   <Input
                     id="profitTarget"
                     type="number"
-                    step="1"
+                    step="0.1"
+                    min={0.1}
                     value={formData.autoSell.profitTarget}
                     onChange={(e) => 
                       setFormData(prev => ({ 
@@ -369,15 +402,22 @@ export function AddSnipeForm({ onAdd }: AddSnipeFormProps) {
                         autoSell: { ...prev.autoSell, profitTarget: parseFloat(e.target.value) }
                       }))
                     }
-                    className="bg-slate-700 border-slate-600 text-white"
+                    className={`bg-slate-700 border-slate-600 text-white ${profitTargetInvalid ? 'border-red-500' : ''}`}
                   />
+                  {profitTargetInvalid && (
+                    <div className="text-red-400 text-xs mt-1">
+                      Profit target must be greater than 0% to ensure sell price is above the buy price.
+                    </div>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="stopLoss" className="text-slate-300">Stop Loss (%)</Label>
                   <Input
                     id="stopLoss"
                     type="number"
-                    step="1"
+                    step="0.5"
+                    min={-95}
+                    max={0}
                     value={formData.autoSell.stopLoss}
                     onChange={(e) => 
                       setFormData(prev => ({ 
@@ -405,8 +445,14 @@ export function AddSnipeForm({ onAdd }: AddSnipeFormProps) {
             <Button 
               type="submit" 
               className={`flex-1 ${isMainnet ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 cursor-not-allowed opacity-60'}`}
-              disabled={!isMainnet || !validateAddress(formData.tokenAddress)}
-              title={isMainnet ? undefined : 'Switch to Ethereum Mainnet to create live sniping targets'}
+              disabled={!isMainnet || !validateAddress(formData.tokenAddress) || (autoEnabled && profitTargetInvalid)}
+              title={
+                !isMainnet 
+                  ? 'Switch to Ethereum Mainnet to create live sniping targets' 
+                  : autoEnabled && profitTargetInvalid
+                  ? 'Fix Auto-Sell profit target (must be > 0%)'
+                  : undefined
+              }
             >
               <Plus className="h-4 w-4 mr-2" />
               {isMainnet ? 'Add Snipe Target' : 'Switch to Mainnet to Add'}

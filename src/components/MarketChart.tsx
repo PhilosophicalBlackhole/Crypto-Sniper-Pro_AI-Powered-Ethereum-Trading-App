@@ -1,5 +1,6 @@
 /**
  * Market chart component with live price data from CoinGecko
+ * - Enhanced: optional P&L display in ETH and USD side-by-side
  */
 
 import React, { useEffect, useState } from 'react';
@@ -11,6 +12,10 @@ import { Badge } from './ui/badge';
 interface MarketDataProps {
   coinId?: string;
   className?: string;
+  /** Optional P&L in ETH to display alongside price */
+  pnlEth?: number;
+  /** Optional P&L in USD (if not provided and coinId is ethereum, will be computed) */
+  pnlUsd?: number;
 }
 
 interface CoinData {
@@ -26,7 +31,7 @@ interface CoinData {
   low_24h: number;
 }
 
-export function MarketChart({ coinId = 'ethereum', className = '' }: MarketDataProps) {
+export function MarketChart({ coinId = 'ethereum', className = '', pnlEth, pnlUsd }: MarketDataProps) {
   const [coinData, setCoinData] = useState<CoinData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +98,15 @@ export function MarketChart({ coinId = 'ethereum', className = '' }: MarketDataP
     if (change < 0) return <TrendingDown className="h-4 w-4" />;
     return null;
   };
+
+  // Derive USD P&L if not provided and coin is ETH
+  const derivedPnlUsd = (() => {
+    if (typeof pnlUsd === 'number') return pnlUsd;
+    if (typeof pnlEth === 'number' && coinData && coinId === 'ethereum') {
+      return pnlEth * coinData.current_price;
+    }
+    return undefined;
+  })();
 
   return (
     <Card className={`bg-slate-900 border-slate-800 ${className}`}>
@@ -200,7 +214,7 @@ export function MarketChart({ coinId = 'ethereum', className = '' }: MarketDataP
               
               {/* Buffer Zone Indicator */}
               <div className="relative">
-                <div 
+                <div
                   dangerouslySetInnerHTML={{
                     __html: `
                       <gecko-coin-price-chart-widget
@@ -224,6 +238,24 @@ export function MarketChart({ coinId = 'ethereum', className = '' }: MarketDataP
                 </div>
               </div>
             </div>
+
+            {/* Optional P&L row */}
+            {typeof pnlEth === 'number' && (
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className={`p-3 rounded-lg border ${pnlEth >= 0 ? 'border-emerald-600 bg-emerald-900/20' : 'border-red-600 bg-red-900/20'}`}>
+                  <div className="text-slate-300 text-xs">P&amp;L (ETH)</div>
+                  <div className={`text-lg font-semibold ${pnlEth >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {pnlEth >= 0 ? '+' : ''}{pnlEth.toFixed(6)} ETH
+                  </div>
+                </div>
+                <div className={`p-3 rounded-lg border ${((derivedPnlUsd ?? 0) >= 0 ? 'border-emerald-600 bg-emerald-900/20' : 'border-red-600 bg-red-900/20')}`}>
+                  <div className="text-slate-300 text-xs">P&amp;L (USD)</div>
+                  <div className={`text-lg font-semibold ${((derivedPnlUsd ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400')}`}>
+                    {derivedPnlUsd !== undefined ? `${derivedPnlUsd >= 0 ? '+' : ''}$${derivedPnlUsd.toFixed(2)}` : '—'}
+                  </div>
+                </div>
+              </div>
+            )}
           </>
         )}
 

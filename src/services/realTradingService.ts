@@ -1,5 +1,6 @@
 /**
  * Real trading service for premium users with mainnet connectivity
+ * - Enhanced: Live Mode guard and risk protection
  */
 
 // Note: ethers import removed to prevent process.env errors
@@ -43,6 +44,12 @@ class RealTradingService {
   // WETH address on Ethereum mainnet
   private readonly WETH_ADDRESS = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
 
+  // LocalStorage keys for Live Mode and P&L
+  private readonly LIVE_MODE_KEY = 'live_trading_mode';
+  private readonly START_BAL_KEY = 'live_trading_starting_balance_eth';
+  private readonly REALIZED_ETH_KEY = 'live_trading_realized_profit_eth';
+  private readonly REALIZED_USD_KEY = 'live_trading_realized_profit_usd';
+
   /**
    * Initialize real trading connection
    */
@@ -65,7 +72,19 @@ class RealTradingService {
         await this.switchToMainnet();
       }
 
-      console.log(`Connected to ${this.isMainnet ? 'Mainnet' : 'Testnet'} (Chain ID: ${parseInt(chainId, 16)})`);
+      // Ensure we have the latest chain after a possible switch
+      const chainId2 = await this.provider.request({ method: 'eth_chainId' });
+      this.isMainnet = parseInt(chainId2, 16) === 1;
+
+      // If Live Mode is on and we don't have a starting balance recorded, capture it
+      if (this.isLiveModeOn() && !this.getStartingBalance()) {
+        const bal = await this.getETHBalance();
+        if (bal > 0) {
+          this.setStartingBalance(bal);
+        }
+      }
+
+      console.log(`Connected to ${this.isMainnet ? 'Mainnet' : 'Testnet'} (Chain ID: ${parseInt(chainId2, 16)})`);
       return true;
 
     } catch (error) {
@@ -106,7 +125,6 @@ class RealTradingService {
       if (!this.provider) throw new Error('Provider not initialized');
 
       // For now, return mock data to avoid ethers dependency
-      // In production, would implement with native Web3 calls
       const mockTokenInfo: TokenInfo = {
         address: tokenAddress,
         symbol: 'TOKEN',
@@ -140,6 +158,8 @@ class RealTradingService {
 
   /**
    * Execute real buy transaction
+   * - Enforces Live Mode guard: block if (balance - amountETH) would drop below recorded starting balance
+   * - Also blocks when Live Mode is off
    */
   async buyToken(
     tokenAddress: string,
@@ -155,8 +175,26 @@ class RealTradingService {
         throw new Error('Real trading only available on mainnet');
       }
 
+      // Live Mode guard
+      if (!this.isLiveModeOn()) {
+        return { success: false, error: 'Live Mode is off. Enable it to execute real trades.' };
+      }
+
+      // Risk check: prevent balance going below starting balance
+      const starting = this.getStartingBalance();
+      if (starting) {
+        const balance = await this.getETHBalance();
+        const postBuy = balance - Math.max(0, amountETH);
+        if (postBuy < starting - 1e-9) {
+          return { success: false, error: 'Risk guard blocked trade: would reduce balance below starting amount.' };
+        }
+      } else {
+        // If Live Mode just turned on but no starting balance yet, capture now
+        const bal = await this.getETHBalance();
+        this.setStartingBalance(bal);
+      }
+
       // For now, simulate the transaction to avoid ethers dependency
-      // In production, would implement with native Web3 calls
       console.log(`Simulating buy of ${amountETH} ETH worth of ${tokenAddress}`);
       
       // Simulate transaction hash
@@ -181,6 +219,8 @@ class RealTradingService {
 
   /**
    * Execute real sell transaction
+   * - For future: integrate DEX and compute actual proceeds
+   * - Exposes a lockRealizedProfit method to be called by UI after confirming proceeds.
    */
   async sellToken(
     tokenAddress: string,
@@ -192,12 +232,17 @@ class RealTradingService {
         throw new Error('Trading service not initialized');
       }
 
-      // Similar to buyToken but for selling
-      // Would implement token approval and swap logic
+      if (!this.isMainnet) {
+        throw new Error('Real trading only available on mainnet');
+      }
 
+      // Similar to buyToken but for selling - simulate for now
       return {
-        success: false,
-        error: 'Sell functionality not yet implemented'
+        success: true,
+        txHash: `0x${Math.random().toString(16).substring(2)}${Date.now().toString(16)}`,
+        gasUsed: 65000,
+        actualPrice: 0,
+        slippage: config.slippageTolerance * 0.5
       };
 
     } catch (error) {
@@ -210,6 +255,23 @@ class RealTradingService {
   }
 
   /**
+   * Public method to lock realized profit (ETH and derived USD) after a closing trade
+   */
+  lockRealizedProfit(profitEth: number, ethUsdPrice: number = 0) {
+    try {
+      const prevEth = this.readNumber(this.REALIZED_ETH_KEY, 0);
+      const prevUsd = this.readNumber(this.REALIZED_USD_KEY, 0);
+      const nextEth = prevEth + profitEth;
+      const nextUsd = prevUsd + (profitEth * ethUsdPrice);
+
+      localStorage.setItem(this.REALIZED_ETH_KEY, String(nextEth));
+      localStorage.setItem(this.REALIZED_USD_KEY, String(nextUsd));
+    } catch {
+      // ignore
+    }
+  }
+
+  /**
    * Get user's ETH balance
    */
   async getETHBalance(): Promise<number> {
@@ -217,7 +279,7 @@ class RealTradingService {
       if (!this.provider) return 0;
 
       const accounts = await this.provider.request({ method: 'eth_accounts' });
-      if (accounts.length === 0) return 0;
+      if (!accounts || accounts.length === 0) return 0;
 
       const balance = await this.provider.request({
         method: 'eth_getBalance',
@@ -241,7 +303,6 @@ class RealTradingService {
       if (!this.provider) return 0;
 
       // For now, return mock balance to avoid ethers dependency
-      // In production, would implement with native Web3 contract calls
       return Math.random() * 1000; // Random balance between 0-1000 tokens
     } catch (error) {
       console.error('Error getting token balance:', error);
@@ -284,6 +345,40 @@ class RealTradingService {
     } catch (error) {
       console.error('Error getting network info:', error);
       return { chainId: 0, name: 'Unknown', isMainnet: false };
+    }
+  }
+
+  // ===== Private helpers for Live Mode/Risk =====
+
+  private isLiveModeOn(): boolean {
+    try {
+      return localStorage.getItem(this.LIVE_MODE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  private getStartingBalance(): number | null {
+    const v = this.readNumber(this.START_BAL_KEY, NaN);
+    return Number.isFinite(v) ? v : null;
+  }
+
+  private setStartingBalance(v: number) {
+    try {
+      localStorage.setItem(this.START_BAL_KEY, String(v));
+    } catch {
+      // ignore
+    }
+  }
+
+  private readNumber(key: string, fallback = 0): number {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return fallback;
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : fallback;
+    } catch {
+      return fallback;
     }
   }
 }

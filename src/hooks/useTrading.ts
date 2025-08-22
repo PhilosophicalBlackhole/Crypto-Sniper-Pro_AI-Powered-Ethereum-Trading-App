@@ -6,13 +6,21 @@ import { useState, useCallback, useEffect } from 'react';
 import { SnipeConfig, Transaction, MarketData, BotStatus } from '../types/trading';
 import { useTestnet } from './useTestnet';
 import { transactionStorage } from '../services/transactionStorage';
+import { useLiveTrading } from './useLiveTrading';
+import { useEthPrice } from './useEthPrice';
 
 export function useTrading(userId?: string) {
   const { isTestnet, web3Service } = useTestnet();
   const [snipeConfigs, setSnipeConfigs] = useState<SnipeConfig[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   
-  // Add some demo data for better UX
+  // Live trading helpers for realized P&L persistence
+  const { lockRealizedProfit } = useLiveTrading();
+  const { price: ethUsdPrice } = useEthPrice();
+
+  /**
+   * Add some demo data for better UX
+   */
   const addDemoData = useCallback(() => {
     const demoConfig: SnipeConfig = {
       id: 'demo-1',
@@ -108,6 +116,9 @@ export function useTrading(userId?: string) {
     uptime: 0,
   });
 
+  /**
+   * Add snipe config to state
+   */
   const addSnipeConfig = useCallback((config: Omit<SnipeConfig, 'id'>) => {
     const newConfig: SnipeConfig = {
       ...config,
@@ -116,6 +127,9 @@ export function useTrading(userId?: string) {
     setSnipeConfigs(prev => [...prev, newConfig]);
   }, []);
 
+  /**
+   * Update an existing snipe config by id
+   */
   const updateSnipeConfig = useCallback((id: string, updates: Partial<SnipeConfig>) => {
     setSnipeConfigs(prev => 
       prev.map(config => 
@@ -124,11 +138,16 @@ export function useTrading(userId?: string) {
     );
   }, []);
 
+  /**
+   * Remove a snipe config by id
+   */
   const removeSnipeConfig = useCallback((id: string) => {
     setSnipeConfigs(prev => prev.filter(config => config.id !== id));
   }, []);
 
-  // Load dashboard transactions on mount
+  /**
+   * Load dashboard transactions on mount (from storage when authenticated)
+   */
   useEffect(() => {
     if (userId) {
       const dashboardTransactions = transactionStorage.getDashboardTransactions(userId);
@@ -139,6 +158,11 @@ export function useTrading(userId?: string) {
     }
   }, [userId]);
 
+  /**
+   * Simulate a transaction (demo)
+   * - Adds pending tx, then updates to success/failed after delay.
+   * - When a sell confirms successfully, lock realized profit for Live Mode metrics.
+   */
   const simulateTransaction = useCallback(async (
     type: 'buy' | 'sell',
     tokenAddress: string,
@@ -158,11 +182,12 @@ export function useTrading(userId?: string) {
       gasPrice: Math.floor(Math.random() * 50) + 20,
       timestamp: Date.now(),
       status: 'pending',
+      // Keep existing demo behavior; profit can be undefined for some txs
       profit: type === 'sell' ? (Math.random() - 0.3) * amount : undefined
     };
 
-    // Add to local state immediately
-    setTransactions(prev => [transaction, ...prev.slice(0, 9)]); // Keep only 10 in local state
+    // Add to local state immediately (keep only 10 recent in RAM)
+    setTransactions(prev => [transaction, ...prev.slice(0, 9)]);
     
     // Save to persistent storage if user is logged in
     if (userId) {
@@ -175,7 +200,12 @@ export function useTrading(userId?: string) {
       const confirmedTransaction = { 
         ...transaction, 
         status: success ? 'success' as const : 'failed' as const,
-        profit: success && type === 'buy' ? (Math.random() - 0.3) * amount * price : transaction.profit
+        // For buy, create a small simulated P&L in ETH so UI visibly changes
+        profit: success
+          ? (transaction.profit !== undefined
+              ? transaction.profit
+              : (Math.random() - 0.4) * (amount * 0.05)) // ~±5% of amount in ETH
+          : transaction.profit
       };
       
       // Update local state
@@ -189,11 +219,24 @@ export function useTrading(userId?: string) {
       if (userId) {
         transactionStorage.saveTransaction(userId, confirmedTransaction);
       }
+
+      // Lock realized profit on successful demo SELLs to reflect in Live Mode totals
+      // Uses current ETH→USD price; safe in demo and real modes.
+      if (
+        confirmedTransaction.status === 'success' &&
+        confirmedTransaction.type === 'sell' &&
+        typeof confirmedTransaction.profit === 'number'
+      ) {
+        lockRealizedProfit(confirmedTransaction.profit, (ethUsdPrice || 0));
+      }
     }, 2000 + Math.random() * 3000);
 
     return transaction;
-  }, [userId]);
+  }, [userId, lockRealizedProfit, ethUsdPrice]);
 
+  /**
+   * Start/Stop bot (demo)
+   */
   const startBot = useCallback(() => {
     setBotStatus(prev => ({ ...prev, isRunning: true }));
   }, []);
@@ -202,7 +245,9 @@ export function useTrading(userId?: string) {
     setBotStatus(prev => ({ ...prev, isRunning: false }));
   }, []);
 
-  // Simulate market data updates
+  /**
+   * Simulate market data updates and trigger demo buys when conditions meet.
+   */
   useEffect(() => {
     const interval = setInterval(() => {
       snipeConfigs.forEach(config => {
@@ -224,7 +269,7 @@ export function useTrading(userId?: string) {
 
         setMarketData(prev => new Map(prev.set(config.tokenAddress, newData)));
 
-        // Check for snipe opportunities
+        // Check for snipe opportunities in demo
         if (config.enabled && botStatus.isRunning && newData.price <= config.targetPrice) {
           simulateTransaction('buy', config.tokenAddress, config.amount, newData.price);
         }
@@ -234,14 +279,19 @@ export function useTrading(userId?: string) {
     return () => clearInterval(interval);
   }, [snipeConfigs, marketData, botStatus.isRunning, simulateTransaction]);
 
-  // Update bot status
+  /**
+   * Recompute bot KPIs whenever transactions or configs change.
+   * Note: include profit values even when zero (=== 0) so totals reflect reality.
+   */
   useEffect(() => {
     const activeSnipes = snipeConfigs.filter(config => config.enabled).length;
     const successfulTxs = transactions.filter(tx => tx.status === 'success').length;
     const totalTxs = transactions.filter(tx => tx.status !== 'pending').length;
+
+    // Sum profits of successful transactions; include 0 by explicit undefined check
     const totalProfit = transactions
-      .filter(tx => tx.status === 'success' && tx.profit)
-      .reduce((sum, tx) => sum + (tx.profit || 0), 0);
+      .filter(tx => tx.status === 'success' && tx.profit !== undefined)
+      .reduce((sum, tx) => sum + (tx.profit as number), 0);
 
     setBotStatus(prev => ({
       ...prev,
