@@ -181,7 +181,7 @@ function startDev() {
   });
 
   reactProcess.on('close', (code) => {
-    console.log(\`React development server exited with code \${code}\`);
+    console.log(\'React development server exited with code \${code}\');
   });
 
   reactProcess.on('error', (error) => {
