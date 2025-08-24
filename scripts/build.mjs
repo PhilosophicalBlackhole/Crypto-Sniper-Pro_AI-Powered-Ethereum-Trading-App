@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * Build script for CryptoSniper Pro
  * - Development: retains CRA dev server (npx react-scripts start)
