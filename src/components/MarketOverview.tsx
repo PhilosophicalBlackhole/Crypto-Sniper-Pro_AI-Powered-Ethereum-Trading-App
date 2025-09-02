@@ -8,6 +8,17 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 
+import { MarketGauge } from './MarketGauge';
+
+export function MarketOverviewTab() {
+  return (
+    <div className="space-y-6">
+      <MarketGauge coinId="ethereum" />
+      {/* Other Market Overview content (e.g., Sniping Performance, etc.) */}
+    </div>
+  );
+}
+
 interface CryptoData {
   id: string;
   symbol: string;
