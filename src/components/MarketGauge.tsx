@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Badge } from './ui/badge';
-import { TrendingUp, TrendingDown, BarChart3, Users, Activity } from 'lucide-react';
+import { TrendingUp, TrendingDown, BarChart3, Users, Activity, RefreshCw } from 'lucide-react';
 
 interface MarketMetrics {
   price: number;
@@ -13,15 +13,15 @@ interface MarketMetrics {
 }
 
 interface MarketGaugeProps {
-  coinId?: string; // Default to 'ethereum'
+  coinId?: string;
 }
 
 export function MarketGauge({ coinId = 'ethereum' }: MarketGaugeProps) {
   const [metrics, setMetrics] = useState<MarketMetrics | null>(null);
   const [selectedTimeline, setSelectedTimeline] = useState<'12h' | '24h' | '72h' | '7d'>('24h');
   const [loading, setLoading] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
-  // Fetch market data from CoinGecko
   const fetchMarketData = async () => {
     setLoading(true);
     try {
@@ -45,6 +45,7 @@ export function MarketGauge({ coinId = 'ethereum' }: MarketGaugeProps) {
         marketCap: Math.random() * 10000000000, // Simulated
         activeTraders: Math.floor(Math.random() * 10000) + 1000, // Simulated
       });
+      setLastUpdated(new Date());
     } catch (error) {
       console.error('Failed to fetch market data:', error);
     } finally {
@@ -70,11 +71,24 @@ export function MarketGauge({ coinId = 'ethereum' }: MarketGaugeProps) {
     return `$${num.toFixed(2)}`;
   };
 
+  const formatTimeAgo = (date: Date) => {
+    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+    if (seconds < 60) return `${seconds}s ago`;
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
+  };
+
   if (!metrics) {
     return (
       <Card className="bg-slate-900/30 backdrop-blur-sm border-slate-700/30">
         <CardContent className="p-6 text-center text-slate-400">
-          Loading market data...
+          <div className="flex items-center justify-center gap-2">
+            <RefreshCw className="h-4 w-4 animate-spin" />
+            Loading market data...
+          </div>
         </CardContent>
       </Card>
     );
@@ -83,9 +97,18 @@ export function MarketGauge({ coinId = 'ethereum' }: MarketGaugeProps) {
   return (
     <Card className="bg-slate-900/30 backdrop-blur-sm border-slate-700/30">
       <CardHeader>
-        <CardTitle className="text-white flex items-center gap-2">
-          <BarChart3 className="h-5 w-5" />
-          Ethereum Market Gauge
+        <CardTitle className="text-white flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-5 w-5" />
+            Ethereum Market Gauge
+          </div>
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <RefreshCw 
+              className={`h-3 w-3 cursor-pointer ${loading ? 'animate-spin' : ''}`} 
+              onClick={fetchMarketData}
+            />
+            <span>Updated {formatTimeAgo(lastUpdated)}</span>
+          </div>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -112,11 +135,38 @@ export function MarketGauge({ coinId = 'ethereum' }: MarketGaugeProps) {
             ) : (
               <TrendingDown className="h-5 w-5" />
             )}
-            {metrics.priceChange.toFixed(2)}%
+            {metrics.priceChange >= 0 ? '+' : ''}{metrics.priceChange.toFixed(2)}%
           </div>
-          {/* Placeholder for a visual gauge (e.g., circular progress bar or line chart) */}
-          <div className="w-64 h-64 mx-auto bg-slate-800 rounded-lg flex items-center justify-center">
-            <span className="text-slate-400">Gauge Visualization</span>
+          
+          {/* Visual Gauge - Circular Progress */}
+          <div className="relative w-64 h-64 mx-auto">
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="relative w-48 h-48">
+                {/* Background circle */}
+                <div className="absolute inset-0 rounded-full bg-slate-800"></div>
+                
+                {/* Progress circle */}
+                <div 
+                  className="absolute inset-0 rounded-full border-8 border-transparent"
+                  style={{
+                    background: `conic-gradient(${
+                      metrics.priceChange >= 0 ? '#10b981' : '#ef4444'
+                    } ${Math.abs(metrics.priceChange) * 3.6}deg, transparent 0deg)`,
+                    mask: 'radial-gradient(transparent 60%, black 60%)'
+                  }}
+                ></div>
+                
+                {/* Center content */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <div className="text-2xl font-bold text-white">
+                    {Math.abs(metrics.priceChange).toFixed(1)}%
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    {selectedTimeline} change
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
