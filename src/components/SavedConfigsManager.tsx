@@ -2,7 +2,7 @@
  * Component for managing saved snipe configurations
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -28,6 +28,9 @@ interface SavedConfigsManagerProps {
   onLoadConfig: (config: SnipeConfig) => void;
 }
 
+// Named export to match the import
+export { SavedConfigsManager };
+
 export function SavedConfigsManager({ currentConfig, onLoadConfig }: SavedConfigsManagerProps) {
   const { savedConfigs, saveConfig, loadConfig, deleteConfig, favoriteConfig, isLoading, error } = useSnipeConfigStorage();
   const [showSaveDialog, setShowSaveDialog] = useState(false);
@@ -35,9 +38,6 @@ export function SavedConfigsManager({ currentConfig, onLoadConfig }: SavedConfig
   const [saveName, setSaveName] = useState('');
   const [saveDescription, setSaveDescription] = useState('');
 
-  /**
-   * Handle saving current configuration
-   */
   const handleSaveConfig = async () => {
     if (!currentConfig || !saveName.trim()) return;
 
@@ -51,9 +51,6 @@ export function SavedConfigsManager({ currentConfig, onLoadConfig }: SavedConfig
     }
   };
 
-  /**
-   * Handle loading a saved configuration
-   */
   const handleLoadConfig = (configId: string) => {
     const config = loadConfig(configId);
     if (config) {
@@ -62,9 +59,6 @@ export function SavedConfigsManager({ currentConfig, onLoadConfig }: SavedConfig
     }
   };
 
-  /**
-   * Handle deleting a configuration
-   */
   const handleDeleteConfig = async (configId: string) => {
     if (confirm('Are you sure you want to delete this configuration?')) {
       try {
@@ -75,9 +69,6 @@ export function SavedConfigsManager({ currentConfig, onLoadConfig }: SavedConfig
     }
   };
 
-  /**
-   * Handle toggling favorite status
-   */
   const handleToggleFavorite = async (configId: string, currentFavorite: boolean) => {
     try {
       await favoriteConfig(configId, !currentFavorite);
@@ -86,9 +77,6 @@ export function SavedConfigsManager({ currentConfig, onLoadConfig }: SavedConfig
     }
   };
 
-  /**
-   * Format date for display
-   */
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -98,13 +86,6 @@ export function SavedConfigsManager({ currentConfig, onLoadConfig }: SavedConfig
       minute: '2-digit'
     });
   };
-
-  // Sort configs: favorites first, then by last used
-  const sortedConfigs = [...savedConfigs].sort((a, b) => {
-    if (a.favorite && !b.favorite) return -1;
-    if (!a.favorite && b.favorite) return 1;
-    return b.lastUsed - a.lastUsed;
-  });
 
   return (
     <div className="space-y-4">
@@ -136,7 +117,7 @@ export function SavedConfigsManager({ currentConfig, onLoadConfig }: SavedConfig
                   value={saveName}
                   onChange={(e) => setSaveName(e.target.value)}
                   placeholder="e.g., Conservative MEME Strategy"
-                  className="bg-slate-800 border-slate-600 text-white"
+                  className="bg-slate-700 border-slate-600 text-white"
                 />
               </div>
               <div>
@@ -146,7 +127,7 @@ export function SavedConfigsManager({ currentConfig, onLoadConfig }: SavedConfig
                   value={saveDescription}
                   onChange={(e) => setSaveDescription(e.target.value)}
                   placeholder="Describe your strategy and settings..."
-                  className="bg-slate-800 border-slate-600 text-white"
+                  className="bg-slate-700 border-slate-600 text-white"
                   rows={3}
                 />
               </div>
@@ -191,11 +172,11 @@ export function SavedConfigsManager({ currentConfig, onLoadConfig }: SavedConfig
             <div className="max-h-96 overflow-y-auto space-y-3">
               {isLoading ? (
                 <div className="text-center py-8 text-slate-400">Loading configurations...</div>
-              ) : sortedConfigs.length === 0 ? (
+              ) : savedConfigs.length === 0 ? (
                 <div className="text-center py-8 text-slate-400">No saved configurations yet</div>
               ) : (
-                sortedConfigs.map((config) => (
-                  <Card key={config.id} className="bg-slate-800 border-slate-700">
+                savedConfigs.map((config) => (
+                  <div key={config.id} className="flex items-center justify-between p-3 bg-slate-800 rounded-lg">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
@@ -234,25 +215,25 @@ export function SavedConfigsManager({ currentConfig, onLoadConfig }: SavedConfig
                       
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3 text-xs">
                         <div>
-                          <span className="text-slate-500">Target Price:</span>
+                          <span className="text-slate-400">Target Price:</span>
                           <div className="text-white font-semibold">${config.targetPrice.toFixed(6)}</div>
                         </div>
                         <div>
-                          <span className="text-slate-500">Amount:</span>
+                          <span className="text-slate-400">Amount:</span>
                           <div className="text-white font-semibold">{config.amount} ETH</div>
                         </div>
                         <div>
-                          <span className="text-slate-500">Slippage:</span>
+                          <span className="text-slate-400">Slippage:</span>
                           <div className="text-white font-semibold">{config.slippage}%</div>
                         </div>
                         <div>
-                          <span className="text-slate-500">Gas:</span>
+                          <span className="text-slate-400">Gas:</span>
                           <div className="text-white font-semibold">{config.gasPrice} GWEI</div>
                         </div>
                       </div>
 
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <div className="flex items-center gap-2 text-xs text-slate-400">
                           <Calendar className="h-3 w-3" />
                           {formatDate(config.lastUsed)}
                         </div>
@@ -266,22 +247,23 @@ export function SavedConfigsManager({ currentConfig, onLoadConfig }: SavedConfig
                         </Button>
                       </div>
                     </CardContent>
-                  </Card>
+                  </div>
                 ))
               )}
             </div>
-            {error && (
-              <div className="text-red-400 text-sm">{error}</div>
-            )}
-            <DialogFooter>
-              <Button
-                onClick={() => setShowLoadDialog(false)}
-                variant="outline"
-                className="bg-transparent"
-              >
-                Close
-              </Button>
-            </DialogFooter>
+          )}
+          {error && (
+            <div className="text-red-400 text-sm">{error}</div>
+          )}
+          <DialogFooter>
+            <Button
+              onClick={() => setShowLoadDialog(false)}
+              variant="outline"
+              className="bg-transparent"
+            >
+              Close
+            </Button>
+          </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
@@ -293,16 +275,26 @@ export function SavedConfigsManager({ currentConfig, onLoadConfig }: SavedConfig
             <div className="flex items-center gap-4 text-sm">
               <div className="flex items-center gap-2">
                 <Settings className="h-4 w-4 text-slate-400" />
-                <span className="text-slate-400">{savedConfigs.length} Saved</span>
+                <span className="text-slate-400">Saved Configs</span>
               </div>
               <div className="flex items-center gap-2">
                 <Star className="h-4 w-4 text-yellow-400" />
-                <span className="text-slate-400">{savedConfigs.filter(c => c.favorite).length} Favorites</span>
+                <span className="text-slate-400">Favorites</span>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      )}
+            <div className="flex items-center gap-2">
+              <span className="text-white font-semibold">{savedConfigs.length}</span>
+              <span className="text-slate-400">total</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-white font-semibold">
+                {savedConfigs.filter(c => c.favorite).length}
+              </span>
+              <span className="text-slate-400">favorites</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
