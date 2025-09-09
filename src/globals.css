@@ -93,6 +93,26 @@
   perspective: 1000px;
 }
 
+/* Market Gauge Responsive Styles */
+.market-gauge-container {
+  @apply w-full max-w-4xl mx-auto;
+}
+
+@media (max-width: 640px) {
+  .market-gauge-container {
+    @apply px-4;
+  }
+  
+  .market-gauge-tabs {
+    @apply grid-cols-2;
+  }
+  
+  .market-metrics {
+    @apply grid-cols-1;
+  }
+}
+
+
 /* -------------------------------------------------
    Overview Glass Mode
    Purpose: Reduce opacity of solid cards inside the

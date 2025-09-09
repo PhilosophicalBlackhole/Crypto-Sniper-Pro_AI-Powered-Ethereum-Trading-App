@@ -63,7 +63,7 @@
     "@types/uuid": "latest",
     "uuid": "latest",
     "@stripe/stripe-js": "latest",
-    "tailwindcss": "latest",
+    "tailwindcss": "^3.4.17",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "autoprefixer": "latest",
@@ -84,6 +84,6 @@
     "postcss": "^8.5.3",
     "rimraf": "^6.0.1",
     "tailwindcss": "^3.4.17",
-    "tailwindcss-animate": "^latest"
+    "tailwindcss-animate": "latest"
   }
 }
