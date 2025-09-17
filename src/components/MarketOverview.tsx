@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 
-import { SnipeConfigManager } from './SavedConfigsManager';
+import { SnipeConfigsManager } from './SavedConfigsManager';
 import { TokenTicker } from './TokenTicker';
 
 export function MarketOverviewTab() {
