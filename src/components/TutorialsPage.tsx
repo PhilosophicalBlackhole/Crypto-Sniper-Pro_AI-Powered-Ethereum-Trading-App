@@ -1068,6 +1068,13 @@ Timing Indicators:
                       <p className="text-slate-300 text-sm mb-4">
                         {tutorial.description}
                       </p>
-                      <Button
+                      <Button>
                         className={`w-full ${
                           tutorial.locked
+		      </button>
+ 		</CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
