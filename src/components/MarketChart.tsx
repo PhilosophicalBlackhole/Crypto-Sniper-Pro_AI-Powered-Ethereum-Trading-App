@@ -16,6 +16,8 @@ interface MarketDataProps {
   pnlEth?: number;
   /** Optional P&L in USD (if not provided and coinId is ethereum, will be computed) */
   pnlUsd?: number;
+  /** Optional chart height in pixels for the embedded widget (default 200) */
+  chartHeight?: number;
 }
 
 interface CoinData {
@@ -31,7 +33,7 @@ interface CoinData {
   low_24h: number;
 }
 
-export function MarketChart({ coinId = 'ethereum', className = '', pnlEth, pnlUsd }: MarketDataProps) {
+export function MarketChart({ coinId = 'ethereum', className = '', pnlEth, pnlUsd, chartHeight = 200 }: MarketDataProps) {
   const [coinData, setCoinData] = useState<CoinData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -223,7 +225,7 @@ export function MarketChart({ coinId = 'ethereum', className = '', pnlEth, pnlUs
                         outlined="true"
                         coin-id="${coinId}"
                         initial-currency="usd"
-                        height="200">
+                        height="${chartHeight}">
                       </gecko-coin-price-chart-widget>
                     `
                   }}
@@ -243,13 +245,13 @@ export function MarketChart({ coinId = 'ethereum', className = '', pnlEth, pnlUs
             {typeof pnlEth === 'number' && (
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className={`p-3 rounded-lg border ${pnlEth >= 0 ? 'border-emerald-600 bg-emerald-900/20' : 'border-red-600 bg-red-900/20'}`}>
-                  <div className="text-slate-300 text-xs">P&amp;L (ETH)</div>
+                  <div className="text-slate-300 text-xs">P&L (ETH)</div>
                   <div className={`text-lg font-semibold ${pnlEth >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                     {pnlEth >= 0 ? '+' : ''}{pnlEth.toFixed(6)} ETH
                   </div>
                 </div>
                 <div className={`p-3 rounded-lg border ${((derivedPnlUsd ?? 0) >= 0 ? 'border-emerald-600 bg-emerald-900/20' : 'border-red-600 bg-red-900/20')}`}>
-                  <div className="text-slate-300 text-xs">P&amp;L (USD)</div>
+                  <div className="text-slate-300 text-xs">P&L (USD)</div>
                   <div className={`text-lg font-semibold ${((derivedPnlUsd ?? 0) >= 0 ? 'text-emerald-400' : 'text-red-400')}`}>
                     {derivedPnlUsd !== undefined ? `${derivedPnlUsd >= 0 ? '+' : ''}$${derivedPnlUsd.toFixed(2)}` : '—'}
                   </div>

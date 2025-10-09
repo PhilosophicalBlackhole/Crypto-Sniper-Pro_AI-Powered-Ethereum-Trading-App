@@ -6,7 +6,7 @@
  * - History: full transaction history
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { MultiWalletConnection } from '../components/MultiWalletConnection';
 import { TestnetPanel } from '../components/TestnetPanel';
 import { BotStatus } from '../components/BotStatus';
@@ -70,6 +70,80 @@ export default function Home({ userId }: HomeProps) {
   useEffect(() => {
     sessionStorage.setItem('dashboard_tab', tab);
   }, [tab]);
+
+  /**
+   * Manual reordering state for SnipeConfig cards.
+   * - Persisted to localStorage per user (or 'guest' when not signed in).
+   * - Hydrates from storage and kept in sync when configs change.
+   */
+  const [order, setOrder] = useState<string[]>([]);
+
+  /**
+   * Hydrate order on config changes and user context.
+   * Ensures:
+   * - All known ids exist in the order.
+   * - Removed ids are pruned.
+   */
+  useEffect(() => {
+    const key = `cryptosniper_order_${userId || 'guest'}`;
+    try {
+      const stored = localStorage.getItem(key);
+      const parsed: string[] | null = stored ? JSON.parse(stored) : null;
+      const ids = snipeConfigs.map(c => c.id);
+      let newOrder = Array.isArray(parsed) ? parsed.filter((id: string) => ids.includes(id)) : [];
+      ids.forEach((id) => {
+        if (!newOrder.includes(id)) newOrder.push(id);
+      });
+      setOrder(newOrder);
+    } catch {
+      // Fallback to current ids on decode error
+      setOrder(snipeConfigs.map(c => c.id));
+    }
+    // We only care when the set of ids changes, not other fields
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, snipeConfigs.map(c => c.id).join(',')]);
+
+  /** Persist order per user */
+  useEffect(() => {
+    const key = `cryptosniper_order_${userId || 'guest'}`;
+    try {
+      localStorage.setItem(key, JSON.stringify(order));
+    } catch {
+      // ignore
+    }
+  }, [order, userId]);
+
+  /** Ordered list of configs used for rendering */
+  const orderedConfigs = useMemo(() => {
+    if (!order.length) return snipeConfigs;
+    const map = new Map(snipeConfigs.map(c => [c.id, c]));
+    const byOrder = order.map(id => map.get(id)).filter(Boolean) as typeof snipeConfigs;
+    // Append any configs missing from order (defensive)
+    const missing = snipeConfigs.filter(c => !order.includes(c.id));
+    return [...byOrder, ...missing];
+  }, [order, snipeConfigs]);
+
+  /** Move a card up by one position */
+  const moveUp = (id: string) => {
+    setOrder(prev => {
+      const idx = prev.indexOf(id);
+      if (idx <= 0) return prev;
+      const arr = [...prev];
+      [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
+      return arr;
+    });
+  };
+
+  /** Move a card down by one position */
+  const moveDown = (id: string) => {
+    setOrder(prev => {
+      const idx = prev.indexOf(id);
+      if (idx < 0 || idx >= prev.length - 1) return prev;
+      const arr = [...prev];
+      [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
+      return arr;
+    });
+  };
 
   return (
     <div className={`min-h-screen bg-gradient-to-br ${bgGradient} p-6 transition-colors`}>
@@ -145,10 +219,11 @@ export default function Home({ userId }: HomeProps) {
               {/* Live market data + Price Chart with P&L strip */}
               <div className="space-y-6">
                 <LiveMarketData />
-                {/* Wire P&L in ETH; MarketChart will derive USD automatically for Ethereum */}
-                <MarketChart pnlEth={botStatus.totalProfit} />
               </div>
             </div>
+
+            {/* Featured full-width market chart for deeper context */}
+            <MarketChart pnlEth={botStatus.totalProfit} chartHeight={380} />
 
             {/* Guidance banner: direct users to Mainnet / History tabs */}
             <div className="bg-slate-900/40 border border-slate-700/40 rounded-lg p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -291,13 +366,17 @@ export default function Home({ userId }: HomeProps) {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {snipeConfigs.map((config) => (
+                    {orderedConfigs.map((config, idx) => (
                       <SnipeConfigCard
                         key={config.id}
                         config={config}
                         marketData={marketData.get(config.tokenAddress)}
                         onUpdate={updateSnipeConfig}
                         onRemove={removeSnipeConfig}
+                        onMoveUp={() => moveUp(config.id)}
+                        onMoveDown={() => moveDown(config.id)}
+                        canMoveUp={idx > 0}
+                        canMoveDown={idx < orderedConfigs.length - 1}
                       />
                     ))}
                   </div>
