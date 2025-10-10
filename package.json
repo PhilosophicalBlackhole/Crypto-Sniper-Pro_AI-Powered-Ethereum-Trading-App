@@ -38,7 +38,7 @@
     "@radix-ui/react-tooltip": "^1.2.4",
     "@stripe/stripe-js": "latest",
     "@supabase/supabase-js": "^2.48.1",
-    "@types/node": "latest",
+    "@types/node": "18.22.0",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@types/uuid": "latest",
