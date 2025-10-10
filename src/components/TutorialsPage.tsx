@@ -1064,15 +1064,11 @@ Timing Indicators:
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent>
+                    </CardContent>
                       <p className="text-slate-300 text-sm mb-4">
                         {tutorial.description}
                       </p>
-                      <Button>
-                        className={`w-full ${
-                          tutorial.locked
-		      </button>
- 		</CardContent>
+                    </CardContent>
         </Card>
       </div>
     </div>
