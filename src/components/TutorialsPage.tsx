@@ -34,7 +34,7 @@ import {
   ArrowRightLeft,
   Save
 } from 'lucide-react';
-import { VideoPlayer } from './media/VideoPlayer';
+#import { VideoPlayer } from './media/VideoPlayer';
 
 interface TutorialStep {
   id: string;
