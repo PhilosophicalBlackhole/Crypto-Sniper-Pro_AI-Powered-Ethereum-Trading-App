@@ -13,6 +13,9 @@ import { TutorialsPage } from './components/TutorialsPage';
 import Home from './pages/Home';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { Toaster, toast } from 'sonner';
+// NEW: plan + subscription sync
+import { useSubscription } from './hooks/useSubscription';
+import { useUserPlan } from './store/useUserPlan';
 
 type AppState = 'landing' | 'demo' | 'authenticated';
 
@@ -27,6 +30,7 @@ interface User {
 /**
  * App - root of the application with routing, theme, background, and global toasts.
  * - Adds a safety check to invalidate any legacy "creator_admin_001" sessions.
+ * - NEW: Keeps user's plan in sync across subscription, store, and local session.
  */
 export default function App() {
   const [appState, setAppState] = useState<AppState>('landing');
@@ -38,6 +42,10 @@ export default function App() {
   // Network status for global notifications
   const { chainId, isMainnet, networkName } = useNetworkStatus();
   const lastChainIdRef = useRef<number | null>(null);
+
+  // NEW: Access store plan and subscription for synchronization
+  const { plan: storePlan, setPlan: setStorePlan } = useUserPlan();
+  const { subscription } = useSubscription(user?.id);
 
   // Toast on network change
   useEffect(() => {
@@ -85,6 +93,49 @@ export default function App() {
     }
   }, []);
 
+  /**
+   * NEW: Plan synchronizer
+   * Purpose: derive an effective plan from subscription/store/user and persist to localStorage and state.
+   * Priority:
+   * 1) Creator override (premium)
+   * 2) Active subscription planId (pro|premium)
+   * 3) Local store (useUserPlan) set by Billing flow
+   * 4) user.plan prop (fallback)
+   */
+  useEffect(() => {
+    if (!user) return;
+
+    const subPlan = subscription?.planId as User['plan'] | undefined;
+    let next: User['plan'] = user.plan;
+
+    if (user.id === 'creator_admin_001') {
+      next = 'premium';
+    } else if (subPlan === 'premium' || subPlan === 'pro') {
+      next = subPlan;
+    } else if (storePlan === 'premium' || storePlan === 'pro') {
+      next = storePlan;
+    }
+
+    if (next !== user.plan) {
+      setUser((prev) => (prev ? { ...prev, plan: next } : prev));
+      try {
+        const raw = localStorage.getItem('cryptosniper_user');
+        if (raw) {
+          const saved = JSON.parse(raw);
+          saved.plan = next;
+          localStorage.setItem('cryptosniper_user', JSON.stringify(saved));
+        }
+      } catch {
+        // ignore storage errors
+      }
+    }
+
+    // Keep the local store aligned with subscription if present
+    if ((subPlan === 'premium' || subPlan === 'pro') && storePlan !== subPlan) {
+      setStorePlan(subPlan);
+    }
+  }, [user, subscription?.planId, storePlan, setStorePlan]);
+
   const handleGetStarted = () => {
     setAppState('demo');
   };
@@ -99,11 +150,14 @@ export default function App() {
     setShowAuthModal(true);
   };
 
+  /**
+   * Handle successful authentication: persist user session
+   */
   const handleAuthSuccess = (userData: User) => {
     setUser(userData);
     setAppState('authenticated');
     setShowAuthModal(false);
-    
+
     // Store user session
     localStorage.setItem('cryptosniper_user', JSON.stringify(userData));
   };
@@ -112,7 +166,7 @@ export default function App() {
     setUser(null);
     setAppState('landing');
     setCurrentPage('dashboard');
-    
+
     // Clear stored session
     localStorage.removeItem('cryptosniper_user');
   };
@@ -121,6 +175,9 @@ export default function App() {
     setCurrentPage(page);
   };
 
+  /**
+   * Render content according to app state and selection.
+   */
   const renderContent = () => {
     if (appState === 'demo') {
       // Demo mode - show demo dashboard (no real wallet connection)
@@ -138,7 +195,7 @@ export default function App() {
           {currentPage === 'dashboard' && <Home userId={user.id} />}
           {currentPage === 'history' && (
             <div className="container mx-auto px-4 py-6">
-              <TransactionHistory 
+              <TransactionHistory
                 transactions={[]}
                 userId={user.id}
                 showPagination={true}
@@ -154,7 +211,7 @@ export default function App() {
               <div className="max-w-4xl mx-auto p-8 bg-slate-900/40 backdrop-blur-md rounded-lg border border-slate-700/40 shadow-xl">
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Community Hub</h2>
                 <p className="text-slate-600 dark:text-slate-300 mb-8">Connect with other crypto snipers and share strategies</p>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="p-6 bg-slate-800/30 rounded-lg border border-slate-600/40">
                     <h3 className="text-lg font-semibold text-white mb-3">Discord Server</h3>
@@ -163,7 +220,7 @@ export default function App() {
                       Coming Soon
                     </button>
                   </div>
-                  
+
                   <div className="p-6 bg-slate-800/30 rounded-lg border border-slate-600/40">
                     <h3 className="text-lg font-semibold text-white mb-3">Trading Signals</h3>
                     <p className="text-slate-200 text-sm mb-4">Access premium trading signals and market analysis.</p>
@@ -171,7 +228,7 @@ export default function App() {
                       Coming Soon
                     </button>
                   </div>
-                  
+
                   <div className="p-6 bg-slate-800/30 rounded-lg border border-slate-600/40">
                     <h3 className="text-lg font-semibold text-white mb-3">Leaderboard</h3>
                     <p className="text-slate-200 text-sm mb-4">See top performers and compete with other members.</p>
@@ -185,12 +242,24 @@ export default function App() {
           )}
           {currentPage === 'billing' && (
             <div className="container mx-auto px-4 py-6">
-              <SubscriptionManager 
+              <SubscriptionManager
                 userId={user.id}
                 onPlanChange={(planId) => {
-                  // Update user plan in state
-                  setUser(prev => prev ? { ...prev, plan: planId as any } : null);
-                  // Show success message
+                  // Update user plan in state and persist
+                  setUser((prev) => {
+                    const next = prev ? { ...prev, plan: planId as any } : prev;
+                    if (next) {
+                      try {
+                        localStorage.setItem('cryptosniper_user', JSON.stringify(next));
+                      } catch {
+                        // ignore storage errors
+                      }
+                    }
+                    return next as User | null;
+                  });
+                  // Keep the local store aligned
+                  setStorePlan(planId as any);
+                  // Feedback
                   console.log(`Successfully upgraded to ${planId} plan`);
                 }}
               />
@@ -216,20 +285,20 @@ export default function App() {
       <Toaster position="top-right" richColors />
       <div className="min-h-screen relative">
         <DynamicBackground />
-        
+
         {/* Token Ticker - Shows at top of page */}
         <TokenTicker />
-        
+
         {/* Mobile Affiliate Banner */}
         <MobileAffiliateBanner />
-        
+
         <HashRouter>
           <div>
             <Routes>
               <Route path="/" element={renderContent()} />
             </Routes>
           </div>
-          
+
           <AuthModal
             isOpen={showAuthModal}
             onClose={() => setShowAuthModal(false)}
