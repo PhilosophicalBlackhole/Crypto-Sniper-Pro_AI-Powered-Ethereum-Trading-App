@@ -1,10 +1,10 @@
 /**
- * File: src/components/BillingPage.tsx
- * Purpose: Billing & upgrades page with Stripe Pricing Table embed.
- * - Captures local upgrade intent (pro/premium) before checkout.
- * - On return from Stripe, prefers server verification via /Events?cs_id=...,
- *   otherwise falls back to the locally stored intent.
- * - Uses Sonner toasts for user feedback.
+ * Component: BillingPage
+ * Purpose: Present upgrade options and embed Stripe Pricing Table. Auto-updates local plan after successful return.
+ * Behavior:
+ * - "Choose Pro/Premium" stores an "upgrade_intent" and scrolls to pricing table.
+ * - On load, if the URL indicates an upgrade success (e.g., #/?upgrade=success), applies the stored intent to user plan.
+ * - Uses Sonner toasts for feedback, falls back cleanly if env config is missing.
  */
 
 import { useEffect, useMemo } from 'react'
@@ -22,7 +22,7 @@ interface BillingPageProps {
 
 /**
  * Parse hash query parameters because we use hash-based routing (HashRouter).
- * Example: https://site/#/?upgrade=success&amp;cs_id=cs_test_123
+ * Example: https://site/#/?upgrade=success
  */
 function getHashQuery(): Record<string, string> {
   try {
@@ -31,61 +31,10 @@ function getHashQuery(): Record<string, string> {
     const query = idx >= 0 ? hash.slice(idx + 1) : ''
     const sp = new URLSearchParams(query)
     const out: Record<string, string> = {}
-    sp.forEach((v, k) => {
-      out[k] = v
-    })
+    sp.forEach((v, k) => (out[k] = v))
     return out
   } catch {
     return {}
-  }
-}
-
-/**
- * Read environment variables safely across non-Vite builds.
- * Looks at window.ENV and process.env, returns undefined if absent.
- */
-function readEnvVar(name: string): string | undefined {
-  const w: any = typeof window !== 'undefined' ? window : undefined
-  const fromWindow = w?.ENV?.[name]
-  const fromProcess =
-    typeof process !== 'undefined' ? (process as any)?.env?.[name] : undefined
-  return fromWindow ?? fromProcess
-}
-
-/**
- * Ask the backend to verify a checkout session ID and return a sanctioned plan tier.
- * This expects an endpoint that supports GET /Events?cs_id=... - it should return { plan: 'pro' | 'premium' | 'free' }.
- * Returns null if verification fails or endpoint is unavailable.
- */
-async function fetchVerifiedPlan(csId: string): Promise<PlanTier | null> {
-  // Allow an explicit public endpoint override. Otherwise default to same-origin "/Events".
-  const endpoint =
-    readEnvVar('PUBLIC_EVENTS_ENDPOINT') ||
-    readEnvVar('VITE_PUBLIC_EVENTS_ENDPOINT') ||
-    '/Events'
-
-  // Build URL with cs_id
-  const url = `${endpoint}${endpoint.includes('?') ? '&' : '?'}cs_id=${encodeURIComponent(csId)}`
-
-  // Abort defensively after ~8s to avoid hanging UX
-  const ctrl = new AbortController()
-  const timeout = setTimeout(() => ctrl.abort(), 8000)
-
-  try {
-    const res = await fetch(url, {
-      method: 'GET',
-      signal: ctrl.signal,
-      headers: { accept: 'application/json' },
-    })
-    if (!res.ok) return null
-    const data = (await res.json()) as any
-    const plan = data?.plan as PlanTier | undefined
-    if (plan === 'pro' || plan === 'premium' || plan === 'free') return plan
-    return null
-  } catch {
-    return null
-  } finally {
-    clearTimeout(timeout)
   }
 }
 
@@ -97,11 +46,6 @@ function scrollToId(id: string) {
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 
-/**
- * Component: BillingPage
- * Description: Show plan tiers, capture upgrade intent, embed Stripe Pricing Table,
- * and verify successful upgrades using the server endpoint when possible.
- */
 export default function BillingPage(props: BillingPageProps) {
   const { plan, setPlan } = useUserPlan()
 
@@ -110,72 +54,39 @@ export default function BillingPage(props: BillingPageProps) {
     try {
       const base = props.userId || 'anon'
       const existing = sessionStorage.getItem('client_ref_id')
-      const ref = existing || `${base}_${Date.now()}`
-      if (!existing) sessionStorage.setItem('client_ref_id', ref)
-      return ref
+      return existing || `${base}_${Date.now()}`
     } catch {
       return `anon_${Date.now()}`
     }
   }, [props.userId])
 
-  /**
-   * On return from Stripe:
-   * 1) If cs_id is present, try server verification first.
-   * 2) If verification fails, fall back to the locally stored upgrade_intent.
-   * 3) Clean the URL to avoid re-triggering.
-   */
+  // Apply upgrade on return from Stripe if URL contains upgrade=success
   useEffect(() => {
     const q = getHashQuery()
     if (q.upgrade === 'success') {
-      ;(async () => {
-        let applied: PlanTier | null = null
-
-        // 1) Try server verification when a checkout session id is provided
-        if (q.cs_id) {
-          const verified = await fetchVerifiedPlan(q.cs_id)
-          if (verified) {
-            applied = verified
-          }
-        }
-
-        // 2) Fallback to stored intent if server verification didn't resolve a plan
-        if (!applied) {
-          try {
-            const stored = localStorage.getItem('upgrade_intent')
-            if (stored === 'pro' || stored === 'premium' || stored === 'free') {
-              applied = stored
-            }
-          } catch {
-            // ignore
-          }
-        }
-
-        // 3) Apply a safe default if still unknown
-        const finalPlan: PlanTier = applied || 'pro'
-        setPlan(finalPlan)
-
-        // Housekeeping
-        try {
-          localStorage.removeItem('upgrade_intent')
-        } catch {
-          // ignore
-        }
-
-        // Notify user, clarify verification source
-        if (applied) {
-          toast.success(`Upgraded to ${finalPlan.toUpperCase()} successfully`)
-        } else if (q.cs_id) {
-          toast.info('Could not verify purchase with server; applied upgrade locally.')
-        }
-
-        // Clean the URL to avoid re-triggering on refresh
-        try {
-          const cleanHash = window.location.hash.split('?')[0]
-          history.replaceState(null, '', `${window.location.pathname}${cleanHash}`)
-        } catch {
-          // ignore
-        }
-      })()
+      let tier: PlanTier | null = null
+      try {
+        const stored = localStorage.getItem('upgrade_intent')
+        if (stored === 'pro' || stored === 'premium') tier = stored
+      } catch {
+        // ignore
+      }
+      // Fall back to pro if unknown
+      const applied = tier || 'pro'
+      setPlan(applied)
+      try {
+        localStorage.removeItem('upgrade_intent')
+      } catch {
+        // ignore
+      }
+      toast.success(`Upgraded to ${applied.toUpperCase()} successfully`)
+      // Clean the URL to avoid re-triggering on refresh
+      try {
+        const cleanHash = window.location.hash.split('?')[0]
+        history.replaceState(null, '', `${window.location.pathname}${cleanHash}`)
+      } catch {
+        // ignore
+      }
     }
   }, [setPlan])
 
@@ -276,10 +187,8 @@ export default function BillingPage(props: BillingPageProps) {
       <div className="rounded-xl border border-slate-700/40 bg-slate-900/40 p-4">
         <h4 className="mb-2 text-white font-semibold">Complete your purchase</h4>
         <p className="mb-4 text-sm text-slate-300">
-          We use Stripe for secure checkout. Set your Pricing Table success URL to:&nbsp;
-          <span className="font-mono text-slate-200">
-            #/?upgrade=success&amp;cs_id={{'{'}CHECKOUT_SESSION_ID{'}'}}
-          </span>
+          We use Stripe for secure checkout. You&apos;ll be redirected back here after payment.
+          Set your Pricing Table success URL in Stripe to: <span className="font-mono text-slate-200">#/&#63;upgrade=success</span>
         </p>
         <StripePricingTable anchorId="pricing-table" clientReferenceId={clientRef} />
       </div>

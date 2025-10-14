@@ -1,12 +1,13 @@
-# Netlify configuration
-# Purpose: Ensure the build uses Node 20+, runs the correct build command, and publishes from dist.
+# Netlify configuration: build + environment
+# Sets stable Node.js to avoid runtime mismatches in CI.
+# Dist output comes from scripts/build.mjs (esbuild) which writes to /dist.
 
 [build]
   command = "npm run build"
   publish = "dist"
 
 [build.environment]
-  # Fix dependency installation errors (rimraf@6 and others) by using Node 20 LTS
-  NODE_VERSION = "20"
-  # Keep alignment with local install behavior if you used legacy peers
+  # Use a stable LTS supported by Netlify builders.
+  NODE_VERSION = "18.20.3"
+  # Optional: avoid peer dependency resolution surprises on CI
   NPM_FLAGS = "--legacy-peer-deps"

@@ -1,20 +1,43 @@
 /**
  * Subscription management hook
+ * - Loads and persists subscription data in localStorage.
+ * - Auto-downgrades to Free when a subscription expires (except for creator override).
+ * - Provides helpers for plan upgrades, cancellation, and payment method updates.
  */
 
 import { useState, useEffect, useCallback } from 'react';
 import { SUBSCRIPTION_PLANS, type Subscription, type SubscriptionPlan, type PaymentIntent } from '../types/subscription';
 
+/** Hook return shape for subscription context */
 interface SubscriptionContextType {
+  /** Current subscription or null if none/expired */
   subscription: Subscription | null;
+  /** Derived plan object (free when no active subscription unless creator) */
   plan: SubscriptionPlan;
+  /** Loading state for async operations */
   loading: boolean;
+  /** Human-readable error message */
   error: string | null;
+  /** Check if user can access a limited feature */
   canAccessFeature: (feature: keyof SubscriptionPlan['limits']) => boolean;
+  /** Request upgrade to Pro plan (simulated) */
   upgradeToProPlan: () => Promise<PaymentIntent | null>;
+  /** Request upgrade to Premium plan (simulated) */
   upgradeToPremiumPlan: () => Promise<PaymentIntent | null>;
+  /** Schedule cancel at period end */
   cancelSubscription: () => Promise<boolean>;
+  /** Update payment method identifier */
   updatePaymentMethod: (paymentMethodId: string) => Promise<boolean>;
+}
+
+/** Determine if a subscription is currently active and not expired */
+function isActive(sub?: Subscription | null): boolean {
+  return !!sub && sub.status === 'active' && sub.currentPeriodEnd > Date.now();
+}
+
+/** LocalStorage key builder */
+function subKey(userId: string) {
+  return `cryptosniper_subscription_${userId}`;
 }
 
 export function useSubscription(userId?: string): SubscriptionContextType {
@@ -22,11 +45,15 @@ export function useSubscription(userId?: string): SubscriptionContextType {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Get current subscription plan
-  const plan = subscription ? SUBSCRIPTION_PLANS[subscription.planId] || SUBSCRIPTION_PLANS.free : SUBSCRIPTION_PLANS.free;
+  // Derived plan: if active subscription found, use it; otherwise free
+  const plan = subscription
+    ? SUBSCRIPTION_PLANS[subscription.planId] || SUBSCRIPTION_PLANS.free
+    : SUBSCRIPTION_PLANS.free;
 
   /**
    * Load subscription data from storage/API
+   * - Validates expiry and active status
+   * - Creator gets a long-lived Premium override
    */
   const loadSubscription = useCallback(async () => {
     if (!userId) {
@@ -37,39 +64,48 @@ export function useSubscription(userId?: string): SubscriptionContextType {
 
     try {
       setLoading(true);
-      
-      // Check localStorage first
-      const stored = localStorage.getItem(`cryptosniper_subscription_${userId}`);
-      if (stored) {
-        const sub = JSON.parse(stored);
-        // Validate subscription is still active
-        if (sub.currentPeriodEnd > Date.now() && sub.status === 'active') {
-          setSubscription(sub);
-          setLoading(false);
-          return;
-        }
-      }
 
-      // For creator account, give premium access
+      // Creator override: grant premium for 1 year (never auto-downgrade here)
       if (userId === 'creator_admin_001') {
         const creatorSub: Subscription = {
           id: 'creator_subscription',
-          userId: userId,
+          userId,
           planId: 'premium',
           status: 'active',
           currentPeriodStart: Date.now(),
-          currentPeriodEnd: Date.now() + (365 * 24 * 60 * 60 * 1000), // 1 year
+          currentPeriodEnd: Date.now() + 365 * 24 * 60 * 60 * 1000,
           cancelAtPeriodEnd: false,
           createdAt: Date.now(),
-          updatedAt: Date.now()
+          updatedAt: Date.now(),
         };
         setSubscription(creatorSub);
-        localStorage.setItem(`cryptosniper_subscription_${userId}`, JSON.stringify(creatorSub));
-      } else {
-        // Regular users default to free plan
-        setSubscription(null);
+        try {
+          localStorage.setItem(subKey(userId), JSON.stringify(creatorSub));
+        } catch {
+          // ignore storage errors
+        }
+        return;
       }
 
+      // Regular users: check localStorage and validate
+      const stored = localStorage.getItem(subKey(userId));
+      if (stored) {
+        try {
+          const sub = JSON.parse(stored) as Subscription;
+          if (isActive(sub)) {
+            setSubscription(sub);
+            return;
+          }
+          // Clean up expired/stale subscription
+          localStorage.removeItem(subKey(userId));
+        } catch {
+          // Malformed storage; remove it
+          localStorage.removeItem(subKey(userId));
+        }
+      }
+
+      // No active subscription
+      setSubscription(null);
     } catch (err) {
       console.error('Error loading subscription:', err);
       setError('Failed to load subscription data');
@@ -83,36 +119,72 @@ export function useSubscription(userId?: string): SubscriptionContextType {
   }, [loadSubscription]);
 
   /**
-   * Check if user can access a specific feature
+   * Auto-expire: when a non-creator subscription has an end time in the future,
+   * schedule a timeout to invalidate it right at expiry, update state and storage.
    */
-  const canAccessFeature = useCallback((feature: keyof SubscriptionPlan['limits']): boolean => {
-    return plan.limits[feature] as boolean;
-  }, [plan]);
+  useEffect(() => {
+    if (!userId) return;
+    if (userId === 'creator_admin_001') return; // never auto-downgrade creator
+    if (!subscription) return;
+
+    // If already not active, clear now and storage
+    if (!isActive(subscription)) {
+      setSubscription(null);
+      try {
+        localStorage.removeItem(subKey(userId));
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
+    const msUntilEnd = Math.max(0, subscription.currentPeriodEnd - Date.now());
+    const timer = window.setTimeout(() => {
+      setSubscription(null);
+      try {
+        localStorage.removeItem(subKey(userId));
+      } catch {
+        // ignore
+      }
+    }, msUntilEnd);
+
+    return () => window.clearTimeout(timer);
+  }, [userId, subscription?.id, subscription?.currentPeriodEnd, subscription?.status]);
 
   /**
-   * Upgrade to Pro plan
+   * Check if user can access a specific feature based on current plan limits.
+   */
+  const canAccessFeature = useCallback(
+    (feature: keyof SubscriptionPlan['limits']): boolean => {
+      return plan.limits[feature] as boolean;
+    },
+    [plan]
+  );
+
+  /**
+   * Upgrade to Pro plan (simulation)
+   * - Creates a payment intent and simulates activation after 2s.
+   * - Persists to localStorage under the user's key.
    */
   const upgradeToProPlan = useCallback(async (): Promise<PaymentIntent | null> => {
     if (!userId) return null;
 
     try {
       setLoading(true);
-      
-      // Create payment intent for Pro plan
+
       const paymentIntent: PaymentIntent = {
         id: `pi_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        amount: SUBSCRIPTION_PLANS.pro.price * 100, // Amount in cents
+        amount: SUBSCRIPTION_PLANS.pro.price * 100,
         currency: 'usd',
         status: 'requires_payment_method',
         metadata: {
           userId,
           planId: 'pro',
-          upgrade: true
-        }
+          upgrade: true,
+        },
       };
 
-      // In production, this would call your payment processor (Stripe, etc.)
-      // For now, we'll simulate successful payment
+      // Simulate processor confirmation -> activate subscription
       setTimeout(() => {
         const newSubscription: Subscription = {
           id: `sub_${Date.now()}`,
@@ -120,18 +192,21 @@ export function useSubscription(userId?: string): SubscriptionContextType {
           planId: 'pro',
           status: 'active',
           currentPeriodStart: Date.now(),
-          currentPeriodEnd: Date.now() + (30 * 24 * 60 * 60 * 1000), // 30 days
+          currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days
           cancelAtPeriodEnd: false,
           createdAt: Date.now(),
-          updatedAt: Date.now()
+          updatedAt: Date.now(),
         };
 
         setSubscription(newSubscription);
-        localStorage.setItem(`cryptosniper_subscription_${userId}`, JSON.stringify(newSubscription));
+        try {
+          localStorage.setItem(subKey(userId), JSON.stringify(newSubscription));
+        } catch {
+          // ignore write errors
+        }
       }, 2000);
 
       return paymentIntent;
-
     } catch (err) {
       console.error('Error upgrading to Pro:', err);
       setError('Failed to upgrade subscription');
@@ -142,14 +217,14 @@ export function useSubscription(userId?: string): SubscriptionContextType {
   }, [userId]);
 
   /**
-   * Upgrade to Premium plan
+   * Upgrade to Premium plan (simulation)
    */
   const upgradeToPremiumPlan = useCallback(async (): Promise<PaymentIntent | null> => {
     if (!userId) return null;
 
     try {
       setLoading(true);
-      
+
       const paymentIntent: PaymentIntent = {
         id: `pi_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         amount: SUBSCRIPTION_PLANS.premium.price * 100,
@@ -158,11 +233,11 @@ export function useSubscription(userId?: string): SubscriptionContextType {
         metadata: {
           userId,
           planId: 'premium',
-          upgrade: true
-        }
+          upgrade: true,
+        },
       };
 
-      // Simulate payment processing
+      // Simulate activation
       setTimeout(() => {
         const newSubscription: Subscription = {
           id: `sub_${Date.now()}`,
@@ -170,18 +245,21 @@ export function useSubscription(userId?: string): SubscriptionContextType {
           planId: 'premium',
           status: 'active',
           currentPeriodStart: Date.now(),
-          currentPeriodEnd: Date.now() + (30 * 24 * 60 * 60 * 1000),
+          currentPeriodEnd: Date.now() + 30 * 24 * 60 * 60 * 1000,
           cancelAtPeriodEnd: false,
           createdAt: Date.now(),
-          updatedAt: Date.now()
+          updatedAt: Date.now(),
         };
 
         setSubscription(newSubscription);
-        localStorage.setItem(`cryptosniper_subscription_${userId}`, JSON.stringify(newSubscription));
+        try {
+          localStorage.setItem(subKey(userId), JSON.stringify(newSubscription));
+        } catch {
+          // ignore write errors
+        }
       }, 2000);
 
       return paymentIntent;
-
     } catch (err) {
       console.error('Error upgrading to Premium:', err);
       setError('Failed to upgrade subscription');
@@ -192,25 +270,28 @@ export function useSubscription(userId?: string): SubscriptionContextType {
   }, [userId]);
 
   /**
-   * Cancel subscription
+   * Cancel subscription at period end (simulation)
    */
   const cancelSubscription = useCallback(async (): Promise<boolean> => {
-    if (!subscription) return false;
+    if (!subscription || !userId) return false;
 
     try {
       setLoading(true);
-      
+
       const updatedSubscription = {
         ...subscription,
         cancelAtPeriodEnd: true,
-        updatedAt: Date.now()
+        updatedAt: Date.now(),
       };
 
       setSubscription(updatedSubscription);
-      localStorage.setItem(`cryptosniper_subscription_${userId}`, JSON.stringify(updatedSubscription));
-      
-      return true;
+      try {
+        localStorage.setItem(subKey(userId), JSON.stringify(updatedSubscription));
+      } catch {
+        // ignore write errors
+      }
 
+      return true;
     } catch (err) {
       console.error('Error canceling subscription:', err);
       setError('Failed to cancel subscription');
@@ -221,18 +302,15 @@ export function useSubscription(userId?: string): SubscriptionContextType {
   }, [subscription, userId]);
 
   /**
-   * Update payment method
+   * Update payment method (simulation)
    */
-  const updatePaymentMethod = useCallback(async (paymentMethodId: string): Promise<boolean> => {
+  const updatePaymentMethod = useCallback(async (_paymentMethodId: string): Promise<boolean> => {
     if (!subscription) return false;
 
     try {
       setLoading(true);
-      
-      // Update payment method logic would go here
-      // For now, just return success
+      // In real implementation, send payment method to backend
       return true;
-
     } catch (err) {
       console.error('Error updating payment method:', err);
       setError('Failed to update payment method');
@@ -251,7 +329,7 @@ export function useSubscription(userId?: string): SubscriptionContextType {
     upgradeToProPlan,
     upgradeToPremiumPlan,
     cancelSubscription,
-    updatePaymentMethod
+    updatePaymentMethod,
   };
 }
 

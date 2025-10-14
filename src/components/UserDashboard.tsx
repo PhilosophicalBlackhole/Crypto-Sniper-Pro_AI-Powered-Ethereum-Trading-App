@@ -3,9 +3,11 @@
  * - Adds header network indicator and a compact sidebar network dot for mobile visibility.
  * - Enhanced: persistent Live Mode toggle and status badge always visible across views.
  * - NEW: Mobile off-canvas sidebar that minimizes by default to ensure dashboard visibility.
+ * - UPDATED: Plan badge now reflects an effective plan derived from active subscription or creator override.
+ * - NEW: Shows a countdown on Pro/Premium badge when within 7 days of expiry.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
@@ -31,6 +33,9 @@ import { AffiliateBanner } from './AffiliateBanner';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import LiveModeToggle from './LiveModeToggle';
 import { useLiveTrading } from '../hooks/useLiveTrading';
+import { useSubscription } from '../hooks/useSubscription';
+import { type PlanTier } from '../store/useUserPlan';
+import type { Subscription } from '../types/subscription';
 
 interface UserDashboardProps {
   /** Authenticated user info */
@@ -50,10 +55,66 @@ interface UserDashboardProps {
 }
 
 /**
+ * Resolve an effective plan tier using authoritative sources.
+ * Rules:
+ * 1) Creator override (premium)
+ * 2) Active subscription planId (pro|premium)
+ * 3) Otherwise: free
+ */
+function useEffectivePlan(userId: string, _fallbackUserPlan: PlanTier, subscription?: Subscription): PlanTier {
+  return useMemo<PlanTier>(() => {
+    // Creator always premium
+    if (userId === 'creator_admin_001') return 'premium';
+
+    // Consider subscription only if active and not expired
+    const isActiveSub = !!(
+      subscription &&
+      subscription.status === 'active' &&
+      subscription.currentPeriodEnd > Date.now()
+    );
+
+    if (isActiveSub) {
+      const subPlanId = subscription.planId;
+      if (subPlanId === 'premium' || subPlanId === 'pro') return subPlanId;
+    }
+
+    // No active subscription => Free
+    return 'free';
+  }, [userId, subscription?.planId, subscription?.status, subscription?.currentPeriodEnd]);
+}
+
+/**
+ * Format a concise time-left string:
+ * - >= 1d: "Xd" or "Xd Yh"
+ * - >= 1h: "Xh" or "Xh Ym"
+ * - otherwise: "Xm"
+ */
+function formatTimeLeft(ms: number): string {
+  const MIN = 60 * 1000;
+  const HOUR = 60 * MIN;
+  const DAY = 24 * HOUR;
+  if (ms <= 0) return '0m';
+  if (ms >= DAY) {
+    const d = Math.floor(ms / DAY);
+    const h = Math.floor((ms % DAY) / HOUR);
+    return h > 0 ? `${d}d ${h}h` : `${d}d`;
+  }
+  if (ms >= HOUR) {
+    const h = Math.floor(ms / HOUR);
+    const m = Math.floor((ms % HOUR) / MIN);
+    return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
+  const m = Math.max(1, Math.floor(ms / MIN));
+  return `${m}m`;
+}
+
+/**
  * UserDashboard - shell layout with header, sidebar, and main content.
  * Adds a small network status badge (dot + name) for transparency.
  * Enhanced to include Live Mode control and an always-visible status badge.
  * New responsive behavior: on small screens, the sidebar is off-canvas and hidden by default.
+ * Updated to derive plan indicator from authoritative effective plan.
+ * NEW: Plan badge shows time remaining within a 7-day window (excludes creator).
  */
 export function UserDashboard({ user, onLogout, onNavigate, children }: UserDashboardProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -69,6 +130,12 @@ export function UserDashboard({ user, onLogout, onNavigate, children }: UserDash
 
   // Live trading state for persistent sidebar badge
   const { liveMode } = useLiveTrading();
+
+  // Subscription data (used for countdown and plan derivation)
+  const { subscription } = useSubscription(user.id);
+
+  // Compute effective plan tier
+  const effectivePlan: PlanTier = useEffectivePlan(user.id, user.plan as PlanTier, subscription);
 
   // Calculate menu position when opening
   useEffect(() => {
@@ -113,21 +180,38 @@ export function UserDashboard({ user, onLogout, onNavigate, children }: UserDash
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [isMobileSidebarOpen]);
 
-  /** Get plan badge including creator badge */
+  /** Determine and render the plan badge including creator and optional countdown */
   const getPlanBadge = () => {
+    // Creator: special badge without countdown
     if (user.id === 'creator_admin_001') {
       return <Badge className="bg-gradient-to-r from-purple-600 to-pink-600 text-white">👑 Creator</Badge>;
     }
-    switch (user.plan) {
-      case 'free':
-        return <Badge variant="secondary" className="bg-slate-600 text-white">Free</Badge>;
-      case 'pro':
-        return <Badge className="bg-blue-600 text-white">Pro</Badge>;
-      case 'premium':
-        return <Badge className="bg-purple-600 text-white">Premium</Badge>;
-      default:
-        return <Badge variant="secondary" className="bg-slate-600 text-white">Free</Badge>;
+
+    // Only show countdown when active, within 7 days
+    const now = Date.now();
+    const DAY = 24 * 60 * 60 * 1000;
+    const isActive = !!(subscription && subscription.status === 'active' && subscription.currentPeriodEnd > now);
+    const msLeft = isActive ? Math.max(0, subscription!.currentPeriodEnd - now) : 0;
+    const showCountdown = isActive && msLeft <= 7 * DAY && msLeft > 0;
+
+    if (effectivePlan === 'free') {
+      return <Badge variant="secondary" className="bg-slate-600 text-white">Free</Badge>;
     }
+    if (effectivePlan === 'pro') {
+      return (
+        <Badge className="bg-blue-600 text-white">
+          Pro{showCountdown ? ` • ${formatTimeLeft(msLeft)} left` : ''}
+        </Badge>
+      );
+    }
+    if (effectivePlan === 'premium') {
+      return (
+        <Badge className="bg-purple-600 text-white">
+          Premium{showCountdown ? ` • ${formatTimeLeft(msLeft)} left` : ''}
+        </Badge>
+      );
+    }
+    return <Badge variant="secondary" className="bg-slate-600 text-white">Free</Badge>;
   };
 
   /** Navigation items */
@@ -154,7 +238,7 @@ export function UserDashboard({ user, onLogout, onNavigate, children }: UserDash
       id: 'community',
       label: 'Community',
       icon: MessageSquare,
-      available: user.plan !== 'free' || user.id === 'creator_admin_001'
+      available: effectivePlan !== 'free' || user.id === 'creator_admin_001'
     },
     {
       id: 'billing',
@@ -406,7 +490,7 @@ export function UserDashboard({ user, onLogout, onNavigate, children }: UserDash
           </nav>
 
           {/* Upgrade prompt for free users (not creator) */}
-          {user.plan === 'free' && user.id !== 'creator_admin_001' && (
+          {effectivePlan === 'free' && user.id !== 'creator_admin_001' && (
             <Card className="m-4 bg-gradient-to-br from-blue-900/60 to-purple-900/60 backdrop-blur-md border-blue-500/60">
               <CardContent className="p-4">
                 <div className="text-center space-y-3">
@@ -414,7 +498,7 @@ export function UserDashboard({ user, onLogout, onNavigate, children }: UserDash
                   <div>
                     <h3 className="text-white font-semibold">Upgrade to Pro</h3>
                     <p className="text-slate-300 text-sm">
-                      Unlock real trading & advanced features
+                      Unlock real trading &amp; advanced features
                     </p>
                   </div>
                   <Button

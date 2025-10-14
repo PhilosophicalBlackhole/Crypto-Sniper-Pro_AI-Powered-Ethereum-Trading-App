@@ -94,28 +94,40 @@ export default function App() {
   }, []);
 
   /**
-   * NEW: Plan synchronizer
-   * Purpose: derive an effective plan from subscription/store/user and persist to localStorage and state.
+   * Plan synchronizer
+   * Purpose: derive an effective plan primarily from subscription and persist across session.
    * Priority:
    * 1) Creator override (premium)
    * 2) Active subscription planId (pro|premium)
-   * 3) Local store (useUserPlan) set by Billing flow
-   * 4) user.plan prop (fallback)
+   * 3) Otherwise: free
+   * Side-effects:
+   * - Persist updated plan to cryptosniper_user
+   * - Keep the local plan store aligned (forces 'free' if no active subscription)
    */
   useEffect(() => {
     if (!user) return;
 
-    const subPlan = subscription?.planId as User['plan'] | undefined;
+    // Evaluate active subscription (ignore expired or inactive)
+    const isActiveSub = !!(
+      subscription &&
+      subscription.status === 'active' &&
+      subscription.currentPeriodEnd > Date.now()
+    );
+
+    const subPlan = isActiveSub ? (subscription.planId as User['plan']) : undefined;
+
     let next: User['plan'] = user.plan;
 
     if (user.id === 'creator_admin_001') {
       next = 'premium';
     } else if (subPlan === 'premium' || subPlan === 'pro') {
       next = subPlan;
-    } else if (storePlan === 'premium' || storePlan === 'pro') {
-      next = storePlan;
+    } else {
+      // No active subscription: force Free (auto-downgrade)
+      next = 'free';
     }
 
+    // Persist user.plan when changed
     if (next !== user.plan) {
       setUser((prev) => (prev ? { ...prev, plan: next } : prev));
       try {
@@ -130,11 +142,93 @@ export default function App() {
       }
     }
 
-    // Keep the local store aligned with subscription if present
-    if ((subPlan === 'premium' || subPlan === 'pro') && storePlan !== subPlan) {
-      setStorePlan(subPlan);
+    // Keep the local plan store aligned with effective plan
+    if (storePlan !== next) {
+      setStorePlan(next as any);
     }
-  }, [user, subscription?.planId, storePlan, setStorePlan]);
+  }, [user, subscription?.planId, subscription?.status, subscription?.currentPeriodEnd, storePlan, setStorePlan]);
+
+  /**
+   * Pre-expiry notifications
+   * - Show toast reminders as a subscription approaches expiry (7d, 3d, 1d, 12h, 1h).
+   * - Excludes the creator override.
+   * - Uses a per-(user,subscription) localStorage key to avoid duplicate reminders.
+   */
+  useEffect(() => {
+    if (!user) return;
+    if (user.id === 'creator_admin_001') return;
+    if (!subscription || subscription.status !== 'active') return;
+
+    const now = Date.now();
+    const msLeft = subscription.currentPeriodEnd - now;
+    if (msLeft <= 0) return;
+
+    const DAY = 24 * 60 * 60 * 1000;
+    const HOUR = 60 * 60 * 1000;
+    const thresholds: Array<{ label: string; ms: number }> = [
+      { label: '7d', ms: 7 * DAY },
+      { label: '3d', ms: 3 * DAY },
+      { label: '1d', ms: DAY },
+      { label: '12h', ms: 12 * HOUR },
+      { label: '1h', ms: HOUR },
+    ];
+
+    // Determine the current threshold reached
+    let currentLabel: string | null = null;
+    for (const t of thresholds) {
+      if (msLeft <= t.ms) {
+        currentLabel = t.label;
+        break;
+      }
+    }
+    if (!currentLabel) {
+      // Clear previous notice tracker when out of window (>7d)
+      try {
+        localStorage.removeItem(`cryptosniper_expiry_notice_${user.id}_${subscription.id}`);
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
+    const key = `cryptosniper_expiry_notice_${user.id}_${subscription.id}`;
+    let prev: string | null = null;
+    try {
+      prev = localStorage.getItem(key);
+    } catch {
+      // ignore
+    }
+    if (prev === currentLabel) return;
+
+    // Helper to format a concise duration
+    const formatDuration = (ms: number) => {
+      if (ms <= 0) return '0m';
+      if (ms >= DAY) {
+        const d = Math.floor(ms / DAY);
+        const h = Math.floor((ms % DAY) / HOUR);
+        return h > 0 ? `${d}d ${h}h` : `${d}d`;
+      }
+      if (ms >= HOUR) {
+        const h = Math.floor(ms / HOUR);
+        const m = Math.floor((ms % HOUR) / (60 * 1000));
+        return m > 0 ? `${h}h ${m}m` : `${h}h`;
+      }
+      const m = Math.max(1, Math.floor(ms / (60 * 1000)));
+      return `${m}m`;
+    };
+
+    const planName = subscription.planId === 'premium' ? 'Premium' : 'Pro';
+    toast.warning(`${planName} plan expiring soon`, {
+      description: `Your ${planName} plan expires in ${formatDuration(msLeft)}. Renew to avoid auto-downgrade to Free.`,
+      duration: 8000,
+    });
+
+    try {
+      localStorage.setItem(key, currentLabel);
+    } catch {
+      // ignore
+    }
+  }, [user, subscription?.id, subscription?.status, subscription?.currentPeriodEnd]);
 
   const handleGetStarted = () => {
     setAppState('demo');

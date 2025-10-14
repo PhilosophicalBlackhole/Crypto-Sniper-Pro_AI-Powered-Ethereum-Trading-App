@@ -8,30 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 
-import { SnipeConfigsManager } from './SavedConfigsManager';
-import { TokenTicker } from './TokenTicker';
-
-export function MarketOverviewTab() {
-  return (
-    <div className="space-y-6">
-      {/* Market Gauge at the top */}
-      <MarketGauge coinId="ethereum" />
-      
-      {/* Token Ticker */}
-      <TokenTicker />
-      
-      {/* Existing content */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <SnipeConfigManager 
-          currentConfig={undefined} 
-          onLoadConfig={() => {}} 
-        />
-        {/* Other components */}
-      </div>
-    </div>
-  );
-}
-
 interface CryptoData {
   id: string;
   symbol: string;

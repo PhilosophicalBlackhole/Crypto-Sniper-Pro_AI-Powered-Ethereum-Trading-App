@@ -2,7 +2,7 @@
  * Real Trading Dashboard Component
  * Professional trading interface with real functionality
  */
-import { MarketGauge } from './MarketGauge';
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';

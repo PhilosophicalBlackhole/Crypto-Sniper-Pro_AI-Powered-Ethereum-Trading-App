@@ -86,19 +86,7 @@ export function BotStatus({ status, onStart, onStop, isMainnet = true }: BotStat
       </CardHeader>
 
       <CardContent className="space-y-4">
-        {/* Environment warning when not on mainnet */}
-        {!isMainnet && (
-          <div className="p-3 bg-amber-900/20 border border-amber-500/40 rounded-lg text-amber-300 text-sm flex items-start gap-2">
-            <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-            <div>
-              <div className="font-medium">Mainnet Required</div>
-              <div className="text-amber-200/90 text-xs">
-                Live bot controls are only available on Ethereum Mainnet. Use the Switch to Mainnet action from the banner to enable trading.
-              </div>
-            </div>
-          </div>
-        )}
-
+     
         {/* Control Button */}
         <div className="flex items-center gap-2">
           <Button

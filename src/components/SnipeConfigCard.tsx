@@ -5,7 +5,7 @@
  */
 
 import React, { useState } from 'react';
-import { Target, Settings, Trash2, Play, Pause, TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
+import { Target, Settings, Trash2, Play, Pause, TrendingUp, TrendingDown, AlertTriangle, ArrowUp, ArrowDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -28,6 +28,14 @@ interface SnipeConfigCardProps {
   onUpdate: (id: string, updates: Partial<SnipeConfig>) => void;
   /** Remove handler for this config */
   onRemove: (id: string) => void;
+  /** Optional: move card up in the list */
+  onMoveUp?: () => void;
+  /** Optional: move card down in the list */
+  onMoveDown?: () => void;
+  /** Optional: whether the card can move up (disables control) */
+  canMoveUp?: boolean;
+  /** Optional: whether the card can move down (disables control) */
+  canMoveDown?: boolean;
 }
 
 /**
@@ -56,7 +64,7 @@ function checkSellTargetsRule(cfg: SnipeConfig): { ok: boolean; msg?: string } {
  * - Enforces SELL > BUY rule at enable/start time and during edit mode.
  * - Shows global toasts on invalid Start attempts for better UX.
  */
-export function SnipeConfigCard({ config, marketData, onUpdate, onRemove }: SnipeConfigCardProps) {
+export function SnipeConfigCard({ config, marketData, onUpdate, onRemove, onMoveUp, onMoveDown, canMoveUp, canMoveDown }: SnipeConfigCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editConfig, setEditConfig] = useState(config);
   const [userConfirmed, setUserConfirmed] = useState(false);
@@ -181,6 +189,33 @@ export function SnipeConfigCard({ config, marketData, onUpdate, onRemove }: Snip
             >
               {config.enabled ? 'Active' : 'Inactive'}
             </Badge>
+
+            {/* Optional manual reordering controls (shown only when callbacks are provided) */}
+            {(onMoveUp || onMoveDown) && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onMoveUp}
+                  disabled={!canMoveUp}
+                  title={canMoveUp ? 'Move up' : 'At top'}
+                  className="text-slate-400 hover:text-white disabled:opacity-40"
+                >
+                  <ArrowUp className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onMoveDown}
+                  disabled={!canMoveDown}
+                  title={canMoveDown ? 'Move down' : 'At bottom'}
+                  className="text-slate-400 hover:text-white disabled:opacity-40"
+                >
+                  <ArrowDown className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+
             <Button
               variant="ghost"
               size="sm"

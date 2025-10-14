@@ -250,6 +250,16 @@ export function TradingModeSelector({ currentMode, onModeChange, userId }: Tradi
               </AlertDescription>
             </Alert>
           )}
+          
+        ) : activeTab === 'mainnet' ? (
+          <div className="space-y-6">
+            <NetworkStatusBar ... />
+            {!isMainnet && (
+              <div className="p-3 bg-amber-900/20 border border-amber-500/40 rounded-lg text-amber-300 text-sm flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5" />
+                <div>
+                  <div className="font-medium">Mainnet Required</div>
+                  <div className="text-amber-200/90 text-xs">
 
           {currentMode === 'testnet' && (
             <Alert className="border-blue-600 bg-blue-900/20">
