@@ -16,6 +16,9 @@ import { Toaster, toast } from 'sonner';
 // NEW: plan + subscription sync
 import { useSubscription } from './hooks/useSubscription';
 import { useUserPlan } from './store/useUserPlan';
+import { LegalFooter } from './components/LegalFooter';
+import authService, { type AuthUser } from './services/authService';
+import { PasswordResetModal } from './components/PasswordResetModal';
 
 type AppState = 'landing' | 'demo' | 'authenticated';
 
@@ -28,9 +31,24 @@ interface User {
 }
 
 /**
+ * Map AuthUser (managed auth) to the local User shape.
+ */
+function mapAuthUserToUser(auth: AuthUser): User {
+  return {
+    id: auth.id,
+    name: auth.name,
+    email: auth.email,
+    plan: auth.plan,
+    avatar: auth.avatar ?? null,
+  };
+}
+
+/**
  * App - root of the application with routing, theme, background, and global toasts.
- * - Adds a safety check to invalidate any legacy "creator_admin_001" sessions.
- * - NEW: Keeps user's plan in sync across subscription, store, and local session.
+ * - Integrates Supabase-managed auth when configured (including magic link and password recovery).
+ * - Falls back to legacy device-local sessions when Supabase is not available.
+ * - Keeps user's plan in sync across subscription, store, and local session.
+ * - Renders a global legal footer with Terms of Service and Privacy Policy links.
  */
 export default function App() {
   const [appState, setAppState] = useState<AppState>('landing');
@@ -38,12 +56,13 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalTab, setAuthModalTab] = useState<'login' | 'signup'>('login');
   const [currentPage, setCurrentPage] = useState('dashboard');
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
 
   // Network status for global notifications
   const { chainId, isMainnet, networkName } = useNetworkStatus();
   const lastChainIdRef = useRef<number | null>(null);
 
-  // NEW: Access store plan and subscription for synchronization
+  // Access store plan and subscription for synchronization
   const { plan: storePlan, setPlan: setStorePlan } = useUserPlan();
   const { subscription } = useSubscription(user?.id);
 
@@ -71,26 +90,105 @@ export default function App() {
     lastChainIdRef.current = chainId;
   }, [chainId, isMainnet, networkName]);
 
-  // Check for stored user session on mount
+  /**
+   * Initialize auth state:
+   * - Prefer Supabase-managed session when available.
+   * - Fall back to legacy device-local session (cryptosniper_user).
+   * - Subscribe to ongoing auth changes (magic link, sign-out, password recovery).
+   */
   useEffect(() => {
-    const storedUser = localStorage.getItem('cryptosniper_user');
-    if (storedUser) {
-      try {
-        const userData = JSON.parse(storedUser) as User;
+    let cancelled = false;
 
-        // Security: invalidate any legacy creator session that may have been stored previously
-        if (userData?.id === 'creator_admin_001') {
-          localStorage.removeItem('cryptosniper_user');
-          localStorage.removeItem('cryptosniper_remember_me');
-        } else {
-          setUser(userData);
-          setAppState('authenticated');
+    const hydrateFromSupabaseOrLocal = async () => {
+      try {
+        // Prefer managed auth when configured.
+        if (authService.isManaged()) {
+          const current = await authService.getCurrentUser();
+          if (cancelled) return;
+
+          if (current) {
+            const mapped = mapAuthUserToUser(current);
+            setUser(mapped);
+            setAppState('authenticated');
+            try {
+              localStorage.setItem('cryptosniper_user', JSON.stringify(mapped));
+            } catch {
+              // ignore storage errors
+            }
+            return;
+          }
+        }
+
+        // Legacy fallback: read device-local session if any.
+        const storedUser = localStorage.getItem('cryptosniper_user');
+        if (storedUser) {
+          try {
+            const userData = JSON.parse(storedUser) as User;
+
+            // Security: invalidate any legacy creator session that may have been stored previously.
+            if (userData?.id === 'creator_admin_001') {
+              localStorage.removeItem('cryptosniper_user');
+              localStorage.removeItem('cryptosniper_remember_me');
+            } else {
+              setUser(userData);
+              setAppState('authenticated');
+            }
+          } catch (error) {
+            console.error('Error parsing stored user data:', error);
+            localStorage.removeItem('cryptosniper_user');
+          }
         }
       } catch (error) {
-        console.error('Error parsing stored user data:', error);
-        localStorage.removeItem('cryptosniper_user');
+        console.error('Error hydrating auth state:', error);
       }
-    }
+    };
+
+    hydrateFromSupabaseOrLocal();
+
+    const unsubscribe = authService.onAuthStateChange(
+      (authUser, event) => {
+        if (cancelled) return;
+
+        // Supabase password recovery: open reset modal.
+        if (event === 'PASSWORD_RECOVERY') {
+          setShowPasswordReset(true);
+          return;
+        }
+
+        if (authUser) {
+          const mapped = mapAuthUserToUser(authUser);
+          setUser(mapped);
+          setAppState('authenticated');
+          try {
+            localStorage.setItem('cryptosniper_user', JSON.stringify(mapped));
+          } catch {
+            // ignore storage errors
+          }
+
+          if (event === 'SIGNED_IN') {
+            toast.success('Signed in successfully.');
+          }
+          return;
+        }
+
+        // Explicit sign-out event: mirror handleLogout behaviour.
+        if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setAppState('landing');
+          setCurrentPage('dashboard');
+          try {
+            localStorage.removeItem('cryptosniper_user');
+          } catch {
+            // ignore
+          }
+        }
+      }
+    );
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, []);
 
   /**
@@ -114,7 +212,9 @@ export default function App() {
       subscription.currentPeriodEnd > Date.now()
     );
 
-    const subPlan = isActiveSub ? (subscription.planId as User['plan']) : undefined;
+    const subPlan = isActiveSub
+      ? (subscription.planId as User['plan'])
+      : undefined;
 
     let next: User['plan'] = user.plan;
 
@@ -146,7 +246,14 @@ export default function App() {
     if (storePlan !== next) {
       setStorePlan(next as any);
     }
-  }, [user, subscription?.planId, subscription?.status, subscription?.currentPeriodEnd, storePlan, setStorePlan]);
+  }, [
+    user,
+    subscription?.planId,
+    subscription?.status,
+    subscription?.currentPeriodEnd,
+    storePlan,
+    setStorePlan,
+  ]);
 
   /**
    * Pre-expiry notifications
@@ -184,7 +291,9 @@ export default function App() {
     if (!currentLabel) {
       // Clear previous notice tracker when out of window (>7d)
       try {
-        localStorage.removeItem(`cryptosniper_expiry_notice_${user.id}_${subscription.id}`);
+        localStorage.removeItem(
+          `cryptosniper_expiry_notice_${user.id}_${subscription.id}`
+        );
       } catch {
         // ignore
       }
@@ -218,9 +327,18 @@ export default function App() {
     };
 
     const planName = subscription.planId === 'premium' ? 'Premium' : 'Pro';
+    // Add CTA to navigate directly to Billing for renewal
     toast.warning(`${planName} plan expiring soon`, {
-      description: `Your ${planName} plan expires in ${formatDuration(msLeft)}. Renew to avoid auto-downgrade to Free.`,
+      description: `Your ${planName} plan expires in ${formatDuration(
+        msLeft
+      )}. Renew to avoid auto-downgrade to Free.`,
       duration: 8000,
+      action: {
+        label: 'Go to Billing',
+        onClick: () => {
+          setCurrentPage('billing');
+        },
+      },
     });
 
     try {
@@ -246,6 +364,7 @@ export default function App() {
 
   /**
    * Handle successful authentication: persist user session
+   * This is used by AuthModal for both managed and demo modes.
    */
   const handleAuthSuccess = (userData: User) => {
     setUser(userData);
@@ -302,31 +421,48 @@ export default function App() {
           )}
           {currentPage === 'community' && (
             <div className="text-center py-16">
-              <div className="max-w-4xl mx-auto p-8 bg-slate-900/40 backdrop-blur-md rounded-lg border border-slate-700/40 shadow-xl">
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">Community Hub</h2>
-                <p className="text-slate-600 dark:text-slate-300 mb-8">Connect with other crypto snipers and share strategies</p>
+              <div className="mx-auto max-w-4xl rounded-lg border border-slate-700/40 bg-slate-900/40 p-8 shadow-xl backdrop-blur-md">
+                <h2 className="mb-6 text-2xl font-bold text-slate-900 dark:text-white">
+                  Community Hub
+                </h2>
+                <p className="mb-8 text-slate-600 dark:text-slate-300">
+                  Connect with other crypto snipers and share strategies
+                </p>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="p-6 bg-slate-800/30 rounded-lg border border-slate-600/40">
-                    <h3 className="text-lg font-semibold text-white mb-3">Discord Server</h3>
-                    <p className="text-slate-200 text-sm mb-4">Join our active Discord community for real-time discussions and alerts.</p>
-                    <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                  <div className="rounded-lg border border-slate-600/40 bg-slate-800/30 p-6">
+                    <h3 className="mb-3 text-lg font-semibold text-white">
+                      Discord Server
+                    </h3>
+                    <p className="mb-4 text-sm text-slate-200">
+                      Join our active Discord community for real-time
+                      discussions and alerts.
+                    </p>
+                    <button className="rounded-lg bg-purple-600 px-4 py-2 text-white transition-colors hover:bg-purple-700">
                       Coming Soon
                     </button>
                   </div>
 
-                  <div className="p-6 bg-slate-800/30 rounded-lg border border-slate-600/40">
-                    <h3 className="text-lg font-semibold text-white mb-3">Trading Signals</h3>
-                    <p className="text-slate-200 text-sm mb-4">Access premium trading signals and market analysis.</p>
-                    <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">
+                  <div className="rounded-lg border border-slate-600/40 bg-slate-800/30 p-6">
+                    <h3 className="mb-3 text-lg font-semibold text-white">
+                      Trading Signals
+                    </h3>
+                    <p className="mb-4 text-sm text-slate-200">
+                      Access premium trading signals and market analysis.
+                    </p>
+                    <button className="rounded-lg bg-green-600 px-4 py-2 text-white transition-colors hover:bg-green-700">
                       Coming Soon
                     </button>
                   </div>
 
-                  <div className="p-6 bg-slate-800/30 rounded-lg border border-slate-600/40">
-                    <h3 className="text-lg font-semibold text-white mb-3">Leaderboard</h3>
-                    <p className="text-slate-200 text-sm mb-4">See top performers and compete with other members.</p>
-                    <button className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors">
+                  <div className="rounded-lg border border-slate-600/40 bg-slate-800/30 p-6">
+                    <h3 className="mb-3 text-lg font-semibold text-white">
+                      Leaderboard
+                    </h3>
+                    <p className="mb-4 text-sm text-slate-200">
+                      See top performers and compete with other members.
+                    </p>
+                    <button className="rounded-lg bg-yellow-600 px-4 py-2 text-white transition-colors hover:bg-yellow-700">
                       Coming Soon
                     </button>
                   </div>
@@ -344,7 +480,10 @@ export default function App() {
                     const next = prev ? { ...prev, plan: planId as any } : prev;
                     if (next) {
                       try {
-                        localStorage.setItem('cryptosniper_user', JSON.stringify(next));
+                        localStorage.setItem(
+                          'cryptosniper_user',
+                          JSON.stringify(next)
+                        );
                       } catch {
                         // ignore storage errors
                       }
@@ -359,7 +498,6 @@ export default function App() {
               />
             </div>
           )}
-
         </UserDashboard>
       );
     }
@@ -377,7 +515,7 @@ export default function App() {
     <ThemeProvider>
       {/* Global Toaster for notifications */}
       <Toaster position="top-right" richColors />
-      <div className="min-h-screen relative">
+      <div className="relative min-h-screen">
         <DynamicBackground />
 
         {/* Token Ticker - Shows at top of page */}
@@ -399,6 +537,15 @@ export default function App() {
             defaultTab={authModalTab}
             onSuccess={handleAuthSuccess}
           />
+
+          {/* Supabase password reset modal (PASSWORD_RECOVERY flow) */}
+          <PasswordResetModal
+            isOpen={showPasswordReset}
+            onClose={() => setShowPasswordReset(false)}
+          />
+
+          {/* Global legal footer with Terms of Service and Privacy Policy */}
+          <LegalFooter />
         </HashRouter>
       </div>
     </ThemeProvider>
