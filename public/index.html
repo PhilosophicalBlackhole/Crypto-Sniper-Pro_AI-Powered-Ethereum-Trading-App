@@ -1,7 +1,8 @@
 <!--
   index.html
   - Provides root container and injects runtime environment into window.__ENV__.
-  - This allows the app to use Supabase Auth without modifying the bundler config.
+  - This allows the app to use Supabase Auth, Stripe config, Auth0, and trading settings
+    without modifying the bundler config.
 -->
 <!doctype html>
 <html lang="en">
@@ -13,16 +14,52 @@
     />
     <title>CryptoSniper Pro</title>
     <meta name="theme-color" content="#0b1221" />
-    <!-- Runtime env injection: Supabase (managed auth) -->
+
+    <!-- Runtime env injection: Supabase, Stripe, Auth0, Trading -->
     <script>
       window.__ENV__ = Object.assign({}, window.__ENV__ || {}, {
+        // Supabase (public anon key)
         REACT_APP_SUPABASE_URL: "https://pritacouhsqmrukolbbo.supabase.co",
-        REACT_APP_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByaXRhY291aHNxbXJ1a29sYmJvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ5NDAxMTcsImV4cCI6MjA3MDUxNjExN30.ibkv6KaQkpIwxJojIZTKKdiTllfyaKZ-edOUWLr6Quk"
+        REACT_APP_SUPABASE_ANON_KEY:
+          "sb_publishable_nSqsc-zI9KDMgNil7m8cAA_fVS2y3SI",
+
+        // Stripe (publishable only)
+        REACT_APP_STRIPE_PUBLISHABLE_KEY:
+          "pk_live_51RnE4nIwahtgKmgJg6KC1VUrL2uvX305maXG6vSFuDviovfqqHJLqEFCbOln7kOF98fipYCqj5sh7jJBE1Scyoac00PCZ3Awzo",
+        REACT_APP_STRIPE_PRICING_TABLE_ID: "prctbl_1SG2lhIwahtgKmgJQHToMFIc",
+        REACT_APP_STRIPE_SUCCESS_URL:
+          "https://cryptosniper.pro/#/?upgrade=success",
+        REACT_APP_STRIPE_CANCEL_URL:
+          "https://cryptosniper.pro/#/?upgrade=canceled",
+
+        // Auth0 (frontend-safe only)
+        REACT_APP_AUTH0_DOMAIN: "dev-lun0kpi3uuot7i6w.auth0.com",
+        REACT_APP_AUTH0_CLIENT_ID: "y3M2I8KBnapTRbghwtFqWOtVKYuuetV8",
+        REACT_APP_AUTH0_CALLBACK_URL:
+          "https://pritacouhsqmrukolbbo.supabase.co/auth/v1/callback",
+
+        // Creator wallet & trading RPC
+        REACT_APP_CREATOR_WALLET:
+          "0x742d35Cc6634C0532925a3b8D6Cd9b3F4c1a7f8D",
+        REACT_APP_ENVIRONMENT: "production",
+        REACT_APP_MAINNET_RPC:
+          "https://linea-mainnet.infura.io/v3/4437debae8a2403981327a93cb0a781f",
       });
     </script>
+
+    <!-- Stripe Pricing Table script (required for <stripe-pricing-table>) -->
+    <script async src="https://js.stripe.com/v3/pricing-table.js"></script>
+
     <style>
-      html, body, #root { height: 100%; }
-      body { margin: 0; background: #070b14; }
+      html,
+      body,
+      #root {
+        height: 100%;
+      }
+      body {
+        margin: 0;
+        background: #070b14;
+      }
     </style>
   </head>
   <body>
